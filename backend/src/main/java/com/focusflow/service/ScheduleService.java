@@ -34,18 +34,27 @@ public class ScheduleService {
     private final TopicRepository topicRepository;
     private final StudySessionRepository studySessionRepository;
     private final MlPredictionService mlPredictionService;
+    private final com.focusflow.repository.RevisionSessionRepository revisionSessionRepository;
 
     public ScheduleService(TopicRepository topicRepository, StudySessionRepository studySessionRepository) {
-        this(topicRepository, studySessionRepository, null);
+        this(topicRepository, studySessionRepository, null, null);
+    }
+
+    public ScheduleService(TopicRepository topicRepository,
+                           StudySessionRepository studySessionRepository,
+                           MlPredictionService mlPredictionService) {
+        this(topicRepository, studySessionRepository, mlPredictionService, null);
     }
 
     @Autowired
     public ScheduleService(TopicRepository topicRepository,
                            StudySessionRepository studySessionRepository,
-                           @Autowired(required = false) MlPredictionService mlPredictionService) {
+                           @Autowired(required = false) MlPredictionService mlPredictionService,
+                           @Autowired(required = false) com.focusflow.repository.RevisionSessionRepository revisionSessionRepository) {
         this.topicRepository = topicRepository;
         this.studySessionRepository = studySessionRepository;
         this.mlPredictionService = mlPredictionService;
+        this.revisionSessionRepository = revisionSessionRepository;
     }
 
     /**
@@ -119,6 +128,37 @@ public class ScheduleService {
 
         // Step 6: Allocate available study time greedily
         List<StudySession> newSessions = new ArrayList<>();
+
+        // Step 6a: Integrate due spaced revision tasks for targetDate (Phase 3)
+        if (revisionSessionRepository != null && remainingMinutes >= 15) {
+            List<com.focusflow.entity.RevisionSession> dueRevisions = revisionSessionRepository
+                    .findByScheduledDateLessThanEqualAndStatusInOrderByScheduledDateAsc(
+                            targetDate,
+                            List.of(com.focusflow.entity.RevisionStatus.PENDING, com.focusflow.entity.RevisionStatus.OVERDUE)
+                    );
+
+            for (com.focusflow.entity.RevisionSession rev : dueRevisions) {
+                Topic revTopic = rev.getTopic();
+                if (revTopic == null || revTopic.getId() == null || alreadyScheduledTopicIds.contains(revTopic.getId())) {
+                    continue;
+                }
+                int revisionDuration = Math.min(30, Math.max(15, revTopic.getEstimatedMinutes() / 2));
+                if (remainingMinutes >= 15) {
+                    int allocated = Math.min(revisionDuration, remainingMinutes);
+                    StudySession revSession = new StudySession(
+                            revTopic,
+                            targetDate,
+                            allocated,
+                            0,
+                            SessionStatus.PLANNED
+                    );
+                    revSession.setRevision(true);
+                    newSessions.add(revSession);
+                    alreadyScheduledTopicIds.add(revTopic.getId());
+                    remainingMinutes -= allocated;
+                }
+            }
+        }
 
         for (Topic topic : validTopics) {
             if (remainingMinutes <= 0) {

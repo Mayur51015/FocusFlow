@@ -1,9 +1,16 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { ProgressService } from '../../services/progress.service';
 import { StudySessionService } from '../../services/study-session.service';
+import { AnalyticsService } from '../../services/analytics.service';
 import { WeeklyProgress } from '../../models/progress.model';
 import { StudyHistoryDto } from '../../models/study-session.model';
+import {
+  LearningSummary,
+  SubjectMastery,
+  RetentionTrends
+} from '../../models/analytics.model';
 
 export interface PredictionAccuracyItem {
   id: number;
@@ -32,11 +39,24 @@ export interface PredictionAccuracyMetrics {
 @Component({
   selector: 'app-progress',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterLink],
   templateUrl: './progress.component.html',
   styleUrls: ['./progress.component.css']
 })
 export class ProgressComponent implements OnInit {
+  private progressService = inject(ProgressService);
+  private studySessionService = inject(StudySessionService);
+  private analyticsService = inject(AnalyticsService);
+
+  activeAnalyticsTab: 'MASTERY' | 'SUBJECTS' | 'RETENTION' | 'STUDY_TIME' = 'MASTERY';
+
+  // Academic Learning Analytics (Phase 5)
+  learningSummary: LearningSummary | null = null;
+  subjectMasteryList: SubjectMastery[] = [];
+  retentionTrends: RetentionTrends | null = null;
+  isLoadingAnalytics: boolean = false;
+
+  // Study Time & ML Duration Prediction Metrics (MVP 1)
   weeklyData: WeeklyProgress = {
     totalCompletedMinutes: 0,
     totalCompletedSessions: 0,
@@ -57,20 +77,63 @@ export class ProgressComponent implements OnInit {
   isLoadingHistory: boolean = false;
   errorMessage: string = '';
 
-  constructor(
-    private progressService: ProgressService,
-    private studySessionService: StudySessionService
-  ) {}
-
   ngOnInit(): void {
+    this.loadLearningAnalytics();
     this.loadWeeklyProgress();
     this.loadPredictionAccuracy();
   }
 
+  setAnalyticsTab(tab: 'MASTERY' | 'SUBJECTS' | 'RETENTION' | 'STUDY_TIME'): void {
+    this.activeAnalyticsTab = tab;
+    if (tab === 'MASTERY') this.loadLearningAnalytics();
+    else if (tab === 'SUBJECTS') this.loadSubjectMastery();
+    else if (tab === 'RETENTION') this.loadRetentionTrends();
+  }
+
+  loadLearningAnalytics(): void {
+    this.isLoadingAnalytics = true;
+    this.analyticsService.getLearningSummary().subscribe({
+      next: (summary) => {
+        this.learningSummary = summary;
+        this.isLoadingAnalytics = false;
+      },
+      error: (err) => {
+        console.warn('Could not load learning summary:', err);
+        this.isLoadingAnalytics = false;
+      }
+    });
+  }
+
+  loadSubjectMastery(): void {
+    this.isLoadingAnalytics = true;
+    this.analyticsService.getSubjectMastery().subscribe({
+      next: (list) => {
+        this.subjectMasteryList = list;
+        this.isLoadingAnalytics = false;
+      },
+      error: (err) => {
+        console.warn('Could not load subject mastery breakdown:', err);
+        this.isLoadingAnalytics = false;
+      }
+    });
+  }
+
+  loadRetentionTrends(): void {
+    this.isLoadingAnalytics = true;
+    this.analyticsService.getRetentionTrends().subscribe({
+      next: (trends) => {
+        this.retentionTrends = trends;
+        this.isLoadingAnalytics = false;
+      },
+      error: (err) => {
+        console.warn('Could not load retention trends:', err);
+        this.isLoadingAnalytics = false;
+      }
+    });
+  }
+
   loadWeeklyProgress(): void {
     this.isLoading = true;
-    this.errorMessage = '';
-
     this.progressService.getWeeklyProgress().subscribe({
       next: (data) => {
         this.weeklyData = data;

@@ -4,8 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ProgressService } from '../../services/progress.service';
 import { StudySessionService } from '../../services/study-session.service';
+import { TopicPerformanceService } from '../../services/topic-performance.service';
+import { ExamReadinessService } from '../../services/exam-readiness.service';
 import { DashboardStats } from '../../models/progress.model';
 import { StudySession } from '../../models/study-session.model';
+import { TopicPerformance } from '../../models/topic-performance.model';
+import { ExamReadinessOverview } from '../../models/exam-readiness.model';
 
 @Component({
   selector: 'app-dashboard',
@@ -24,6 +28,8 @@ export class DashboardComponent implements OnInit {
   };
 
   todaySessions: StudySession[] = [];
+  weakTopics: TopicPerformance[] = [];
+  readinessOverview: ExamReadinessOverview | null = null;
   isLoading: boolean = true;
   isGenerating: boolean = false;
   isRecalculating: boolean = false;
@@ -35,7 +41,9 @@ export class DashboardComponent implements OnInit {
 
   constructor(
     private progressService: ProgressService,
-    private studySessionService: StudySessionService
+    private studySessionService: StudySessionService,
+    private performanceService: TopicPerformanceService,
+    private examReadinessService: ExamReadinessService
   ) {}
 
   ngOnInit(): void {
@@ -73,6 +81,26 @@ export class DashboardComponent implements OnInit {
       },
       error: (err) => {
         console.error('Failed to load today sessions', err);
+      }
+    });
+
+    // 3. Load weak topics needing academic intervention
+    this.performanceService.getWeakTopics().subscribe({
+      next: (weaks) => {
+        this.weakTopics = weaks;
+      },
+      error: (err) => {
+        console.warn('Could not load weak topics for dashboard', err);
+      }
+    });
+
+    // 4. Load exam readiness overview (Phase 4)
+    this.examReadinessService.getReadinessOverview().subscribe({
+      next: (overview) => {
+        this.readinessOverview = overview;
+      },
+      error: (err) => {
+        console.warn('Could not load exam readiness overview for dashboard', err);
       }
     });
   }

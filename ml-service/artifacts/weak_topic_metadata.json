@@ -1,0 +1,34 @@
+{
+  "modelName": "WeakTopicRandomForestClassifier",
+  "algorithm": "RandomForestClassifier",
+  "version": "1.0",
+  "trainedAt": "2026-11-02T14:24:45.242398",
+  "features": [
+    "difficulty_num",
+    "average_quiz_score",
+    "attempt_count",
+    "revision_count",
+    "recent_study_minutes",
+    "last_quiz_score"
+  ],
+  "classes": [
+    "MODERATE",
+    "STRONG",
+    "WEAK"
+  ],
+  "crossValidationAccuracy": 0.986,
+  "testAccuracy": 0.986,
+  "metrics": {
+    "macroAvgF1": 0.9763,
+    "weightedAvgF1": 0.9861
+  },
+  "featureImportances": {
+    "difficulty_num": 0.0491,
+    "average_quiz_score": 0.4651,
+    "attempt_count": 0.0393,
+    "revision_count": 0.0618,
+    "recent_study_minutes": 0.1223,
+    "last_quiz_score": 0.2624
+  },
+  "note": "Trained on synthetic representative academic data. Evaluates WEAK, MODERATE, STRONG topic mastery."
+}

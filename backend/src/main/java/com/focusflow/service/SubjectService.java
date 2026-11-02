@@ -17,9 +17,12 @@ import java.util.List;
 public class SubjectService {
 
     private final SubjectRepository subjectRepository;
+    private final com.focusflow.repository.ExamReadinessRepository examReadinessRepository;
 
-    public SubjectService(SubjectRepository subjectRepository) {
+    public SubjectService(SubjectRepository subjectRepository,
+                          com.focusflow.repository.ExamReadinessRepository examReadinessRepository) {
         this.subjectRepository = subjectRepository;
+        this.examReadinessRepository = examReadinessRepository;
     }
 
     public List<Subject> getAllSubjects() {
@@ -60,6 +63,7 @@ public class SubjectService {
             throw new BadRequestException("Subject ID cannot be null");
         }
         Subject existingSubject = getSubjectById(id);
+        examReadinessRepository.deleteBySubjectId(id);
         subjectRepository.delete(existingSubject);
     }
 }
