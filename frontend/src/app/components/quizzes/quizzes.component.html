@@ -1,0 +1,639 @@
+<div class="container">
+
+  <!-- ========================================== -->
+  <!-- 1. QUIZ LIST VIEW                          -->
+  <!-- ========================================== -->
+  <ng-container *ngIf="viewMode === 'LIST'">
+    <!-- Page Header -->
+    <div class="page-header header-with-actions">
+      <div>
+        <h1 class="page-title">Academic Quizzes & Assessments</h1>
+        <p class="page-subtitle">Test your conceptual understanding, detect knowledge gaps, and evaluate exam readiness</p>
+      </div>
+      <div class="header-action-group">
+        <button class="btn btn-secondary" (click)="openHistory()">
+          📜 Attempt History
+        </button>
+        <button class="btn btn-primary" (click)="openCreateForm()">
+          ➕ Create New Quiz
+        </button>
+      </div>
+    </div>
+
+    <!-- Alerts -->
+    <div *ngIf="errorMessage" class="alert alert-error">
+      <span>⚠️ {{ errorMessage }}</span>
+      <button class="btn-sm btn-secondary" (click)="errorMessage = ''">Dismiss</button>
+    </div>
+    <div *ngIf="successMessage" class="alert alert-success">
+      <span>🎉 {{ successMessage }}</span>
+      <button class="btn-sm btn-secondary" (click)="successMessage = ''">Dismiss</button>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="card filter-bar">
+      <div class="filter-controls">
+        <div class="filter-group">
+          <label class="form-label">Filter by Subject</label>
+          <select 
+            class="form-control" 
+            [(ngModel)]="selectedSubjectFilter" 
+            (change)="onFilterSubjectChange()">
+            <option [ngValue]="null">All Subjects</option>
+            <option *ngFor="let s of subjects" [ngValue]="s.id">{{ s.name }}</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label class="form-label">Filter by Topic</label>
+          <select 
+            class="form-control" 
+            [(ngModel)]="selectedTopicFilter" 
+            (change)="loadQuizzes()">
+            <option [ngValue]="null">All Topics</option>
+            <option 
+              *ngFor="let t of topics" 
+              [ngValue]="t.id"
+              [hidden]="selectedSubjectFilter && t.subject.id !== selectedSubjectFilter">
+              {{ t.name }}
+            </option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div *ngIf="isLoading" class="empty-state">
+      <div class="spinner-small">⚡</div>
+      <p style="margin-top: 12px;">Loading quizzes from database...</p>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="!isLoading && quizzes.length === 0" class="empty-state card" style="margin-top: 24px;">
+      <div class="empty-icon">📝</div>
+      <h3>No quizzes found</h3>
+      <p>No assessment quizzes match your filter. Click <strong>Create New Quiz</strong> to build custom questions for your subjects.</p>
+      <button class="btn btn-primary" style="margin-top: 16px;" (click)="openCreateForm()">
+        ➕ Create First Quiz
+      </button>
+    </div>
+
+    <!-- Quizzes Grid -->
+    <div *ngIf="!isLoading && quizzes.length > 0" class="quizzes-grid" style="margin-top: 24px;">
+      <div *ngFor="let q of quizzes" class="card quiz-card">
+        <div class="quiz-card-header">
+          <div class="tags-group">
+            <span class="subject-tag">{{ q.subjectName }}</span>
+            <span *ngIf="q.topicName" class="badge badge-topic">{{ q.topicName }}</span>
+          </div>
+          <span *ngIf="q.bestScorePercentage !== null && q.bestScorePercentage !== undefined" 
+                class="badge" 
+                [ngClass]="q.bestScorePercentage >= 50 ? 'badge-success' : 'badge-warning'"
+                title="Your best recorded score">
+            🏆 Best: {{ q.bestScorePercentage }}%
+          </span>
+        </div>
+
+        <h3 class="quiz-title">{{ q.title }}</h3>
+        <p class="quiz-desc">{{ q.description || 'Comprehensive multiple-choice assessment.' }}</p>
+
+        <div class="quiz-meta-grid">
+          <div class="meta-item">
+            <span class="meta-label">Duration</span>
+            <span class="meta-val">⏱️ {{ q.durationMinutes }}m</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Questions</span>
+            <span class="meta-val">❓ {{ q.questionCount }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Total Marks</span>
+            <span class="meta-val">🎯 {{ q.totalMarks }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Passing</span>
+            <span class="meta-val">✓ {{ q.passingMarks }}m</span>
+          </div>
+        </div>
+
+        <div class="quiz-card-footer">
+          <span class="attempts-count text-muted">
+            {{ q.attemptCount }} student attempt(s)
+          </span>
+          <button class="btn btn-primary btn-sm" (click)="startQuiz(q.id)">
+            ▶ Take Quiz
+          </button>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- ========================================== -->
+  <!-- 2. ACTIVE QUIZ ATTEMPT PLAYER VIEW        -->
+  <!-- ========================================== -->
+  <ng-container *ngIf="viewMode === 'ATTEMPT' && activeQuiz">
+    <!-- Sticky Attempt Header -->
+    <div class="attempt-sticky-header">
+      <div class="attempt-info">
+        <div>
+          <h2 class="attempt-title">{{ activeQuiz.title }}</h2>
+          <div class="attempt-meta-pills">
+            <span class="subject-tag">{{ activeQuiz.subjectName }}</span>
+            <span *ngIf="activeQuiz.topicName" class="badge badge-topic">{{ activeQuiz.topicName }}</span>
+            <span class="progress-pill">
+              Question {{ currentQuestionIndex + 1 }} of {{ activeQuiz.questions.length }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="attempt-actions">
+        <!-- Live Countdown Timer -->
+        <div class="timer-display" [ngClass]="{'timer-low': isTimeLow}">
+          <span class="timer-icon">⏱️</span>
+          <span class="timer-digits">{{ formattedRemainingTime }}</span>
+        </div>
+
+        <button 
+          class="btn btn-success" 
+          (click)="confirmSubmit()" 
+          [disabled]="isSubmitting">
+          <span *ngIf="!isSubmitting">Submit Quiz ✓</span>
+          <span *ngIf="isSubmitting">Grading...</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Question Navigator Ribbon -->
+    <div class="card question-nav-card" style="margin-top: 16px;">
+      <div class="nav-ribbon-label">Question Navigator:</div>
+      <div class="nav-ribbon-pills">
+        <button 
+          *ngFor="let q of activeQuiz.questions; let idx = index"
+          class="nav-pill"
+          [ngClass]="{
+            'active-pill': idx === currentQuestionIndex,
+            'answered-pill': isQuestionAnswered(q.id)
+          }"
+          (click)="jumpToQuestion(idx)"
+          [title]="isQuestionAnswered(q.id) ? 'Question #' + (idx + 1) + ' (Answered)' : 'Question #' + (idx + 1) + ' (Unanswered)'">
+          {{ idx + 1 }}
+        </button>
+      </div>
+      <div class="nav-ribbon-summary text-muted">
+        <span>Answered: <strong>{{ answeredCount }} / {{ totalQuestionsCount }}</strong></span>
+      </div>
+    </div>
+
+    <!-- Main Active Question Card -->
+    <div class="card active-question-card" style="margin-top: 16px;">
+      <div class="question-header">
+        <div class="question-number-badge">Question {{ currentQuestionIndex + 1 }}</div>
+        <div class="question-marks-badge">
+          <span>{{ activeQuiz.questions[currentQuestionIndex].marks }} marks</span>
+          <span *ngIf="activeQuiz.questions[currentQuestionIndex].topicName" class="badge badge-topic" style="margin-left: 8px;">
+            {{ activeQuiz.questions[currentQuestionIndex].topicName }}
+          </span>
+        </div>
+      </div>
+
+      <div class="question-text">
+        {{ activeQuiz.questions[currentQuestionIndex].questionText }}
+      </div>
+
+      <!-- Multiple Choice Options -->
+      <div class="options-container">
+        <div 
+          *ngFor="let opt of activeQuiz.questions[currentQuestionIndex].options"
+          class="option-card"
+          [ngClass]="{'option-selected': studentAnswers[activeQuiz.questions[currentQuestionIndex].id] === opt.id}"
+          (click)="selectOption(activeQuiz.questions[currentQuestionIndex].id, opt.id)">
+          <div class="option-radio-circle">
+            <span *ngIf="studentAnswers[activeQuiz.questions[currentQuestionIndex].id] === opt.id" class="radio-inner-dot"></span>
+          </div>
+          <div class="option-content">
+            <span class="option-text">{{ opt.optionText }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Question Footer / Navigation Controls -->
+      <div class="question-footer-controls">
+        <button 
+          class="btn btn-secondary" 
+          [disabled]="currentQuestionIndex === 0" 
+          (click)="prevQuestion()">
+          ← Previous
+        </button>
+
+        <button 
+          *ngIf="currentQuestionIndex < activeQuiz.questions.length - 1"
+          class="btn btn-primary" 
+          (click)="nextQuestion()">
+          Next →
+        </button>
+
+        <button 
+          *ngIf="currentQuestionIndex === activeQuiz.questions.length - 1"
+          class="btn btn-success" 
+          (click)="confirmSubmit()" 
+          [disabled]="isSubmitting">
+          Finish & Submit Quiz ✓
+        </button>
+      </div>
+    </div>
+
+    <!-- Unanswered Confirmation Modal -->
+    <div *ngIf="showConfirmSubmitModal" class="modal-overlay" (click)="showConfirmSubmitModal = false">
+      <div class="modal-card" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3 class="modal-title">⚠️ Submit Quiz Confirmation</h3>
+          <button class="btn-sm btn-icon" (click)="showConfirmSubmitModal = false">✕</button>
+        </div>
+        <div style="padding: 20px;">
+          <p>
+            You have answered <strong>{{ answeredCount }}</strong> of <strong>{{ totalQuestionsCount }}</strong> questions.
+          </p>
+          <p class="text-muted" style="font-size: 0.9rem; margin-top: 8px;">
+            {{ totalQuestionsCount - answeredCount }} unanswered question(s) will be marked as incorrect. Are you sure you want to finalize submission?
+          </p>
+          <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px;">
+            <button class="btn btn-secondary" (click)="showConfirmSubmitModal = false">
+              Continue Answering
+            </button>
+            <button class="btn btn-success" (click)="submitAttempt(true)">
+              Confirm & Submit Now
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- ========================================== -->
+  <!-- 3. QUIZ ATTEMPT RESULT VIEW               -->
+  <!-- ========================================== -->
+  <ng-container *ngIf="viewMode === 'RESULT' && lastResult">
+    <!-- Result Hero Card -->
+    <div class="card result-hero-card" [ngClass]="lastResult.passed ? 'result-passed' : 'result-failed'">
+      <div class="result-hero-header">
+        <div>
+          <span class="subject-tag">{{ lastResult.subjectName }}</span>
+          <span *ngIf="lastResult.topicName" class="badge badge-topic">{{ lastResult.topicName }}</span>
+          <h2 class="result-hero-title">{{ lastResult.quizTitle }}</h2>
+        </div>
+        <div class="result-status-pill" [ngClass]="lastResult.passed ? 'status-passed' : 'status-failed'">
+          {{ lastResult.passed ? '🎉 PASSED' : '⚠️ NEEDS REVISION' }}
+        </div>
+      </div>
+
+      <div class="result-metrics-grid">
+        <div class="result-metric">
+          <span class="r-label">Final Score</span>
+          <span class="r-val">{{ lastResult.score }} <span class="r-sub">/ {{ lastResult.totalMarks }}</span></span>
+        </div>
+        <div class="result-metric">
+          <span class="r-label">Percentage</span>
+          <span class="r-val" [ngClass]="lastResult.passed ? 'text-success' : 'text-danger'">
+            {{ lastResult.percentage }}%
+          </span>
+        </div>
+        <div class="result-metric">
+          <span class="r-label">Passing Standard</span>
+          <span class="r-val">{{ lastResult.passingMarks }} marks</span>
+        </div>
+        <div class="result-metric">
+          <span class="r-label">Time Spent</span>
+          <span class="r-val">⏱️ {{ lastResult.timeSpentSeconds }}s</span>
+        </div>
+      </div>
+
+      <div class="result-actions-strip">
+        <button class="btn btn-outline-secondary" (click)="backToList()">
+          ← Back to Quizzes
+        </button>
+        <button class="btn btn-secondary" (click)="openHistory()">
+          📜 Attempt History
+        </button>
+        <button class="btn btn-primary" (click)="retakeCurrentQuiz()">
+          ↺ Retake This Quiz
+        </button>
+      </div>
+    </div>
+
+    <!-- Question-by-Question Breakdown -->
+    <div class="card" style="margin-top: 24px;">
+      <div class="card-header">
+        <h2 class="card-title">
+          <span>🔍</span> Question-by-Question Diagnostic Review
+        </h2>
+      </div>
+
+      <div class="breakdown-list">
+        <div 
+          *ngFor="let item of lastResult.questionResults; let qIdx = index" 
+          class="breakdown-item"
+          [ngClass]="item.isCorrect ? 'item-correct' : 'item-incorrect'">
+          <div class="breakdown-item-header">
+            <span class="q-badge">Question {{ qIdx + 1 }}</span>
+            <div class="q-status-group">
+              <span class="badge" [ngClass]="item.isCorrect ? 'badge-success' : 'badge-danger'">
+                {{ item.isCorrect ? '✓ Correct (+ ' + item.marksAwarded + 'm)' : '✕ Incorrect (0m)' }}
+              </span>
+              <span *ngIf="item.topicName" class="badge badge-topic">{{ item.topicName }}</span>
+            </div>
+          </div>
+
+          <div class="breakdown-question-text">
+            {{ item.questionText }}
+          </div>
+
+          <div class="breakdown-answers-box">
+            <div class="answer-row student-choice" [ngClass]="item.isCorrect ? 'choice-correct' : 'choice-incorrect'">
+              <span class="ans-label">Your Answer:</span>
+              <span class="ans-text">
+                {{ item.selectedOptionText }}
+              </span>
+            </div>
+
+            <div *ngIf="!item.isCorrect" class="answer-row correct-choice">
+              <span class="ans-label">Correct Answer:</span>
+              <span class="ans-text">✓ {{ item.correctOptionText }}</span>
+            </div>
+          </div>
+
+          <div *ngIf="item.explanation" class="breakdown-explanation">
+            <strong>💡 Conceptual Explanation:</strong> {{ item.explanation }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- ========================================== -->
+  <!-- 4. ATTEMPT HISTORY VIEW                    -->
+  <!-- ========================================== -->
+  <ng-container *ngIf="viewMode === 'HISTORY'">
+    <div class="page-header header-with-actions">
+      <div>
+        <h1 class="page-title">Quiz Attempt History</h1>
+        <p class="page-subtitle">Complete historical record of all your assessment results and learning performance</p>
+      </div>
+      <button class="btn btn-secondary" (click)="backToList()">
+        ← Back to Quizzes
+      </button>
+    </div>
+
+    <div *ngIf="isLoading" class="empty-state">
+      <p>Loading historical records...</p>
+    </div>
+
+    <div *ngIf="!isLoading && attemptHistory.length === 0" class="empty-state card">
+      <div class="empty-icon">📂</div>
+      <h3>No quiz attempts recorded yet</h3>
+      <p>Take your first quiz to evaluate your retention and build assessment history.</p>
+      <button class="btn btn-primary" style="margin-top: 16px;" (click)="backToList()">
+        Browse Quizzes
+      </button>
+    </div>
+
+    <div *ngIf="!isLoading && attemptHistory.length > 0" class="card table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Date & Time</th>
+            <th>Quiz Title</th>
+            <th>Subject</th>
+            <th>Score</th>
+            <th>Percentage</th>
+            <th>Result</th>
+            <th>Time Spent</th>
+            <th style="text-align: right;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let h of attemptHistory">
+            <td><strong>{{ h.completedAt | date:'medium' }}</strong></td>
+            <td><strong>{{ h.quizTitle }}</strong></td>
+            <td><span class="subject-tag">{{ h.subjectName }}</span></td>
+            <td>{{ h.score }} / {{ h.totalMarks }}</td>
+            <td>
+              <strong [ngClass]="h.passed ? 'text-success' : 'text-danger'">{{ h.percentage }}%</strong>
+            </td>
+            <td>
+              <span class="badge" [ngClass]="h.passed ? 'badge-success' : 'badge-danger'">
+                {{ h.passed ? 'PASSED' : 'NEEDS REVISION' }}
+              </span>
+            </td>
+            <td>⏱️ {{ h.timeSpentSeconds }}s</td>
+            <td style="text-align: right;">
+              <button class="btn btn-primary btn-sm" (click)="startQuiz(h.quizId)">
+                Retake
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </ng-container>
+
+  <!-- ========================================== -->
+  <!-- 5. CREATE QUIZ FORM VIEW                   -->
+  <!-- ========================================== -->
+  <ng-container *ngIf="viewMode === 'CREATE'">
+    <div class="page-header header-with-actions">
+      <div>
+        <h1 class="page-title">Create Academic Quiz</h1>
+        <p class="page-subtitle">Build customized multiple-choice tests with topic-level question attribution</p>
+      </div>
+      <button class="btn btn-secondary" (click)="backToList()">
+        Cancel
+      </button>
+    </div>
+
+    <div *ngIf="errorMessage" class="alert alert-error">
+      <span>⚠️ {{ errorMessage }}</span>
+    </div>
+
+    <div class="card create-quiz-card">
+      <form (ngSubmit)="submitCreateQuiz()">
+        <!-- General Metadata -->
+        <div class="form-row">
+          <div class="form-group flex-2">
+            <label class="form-label">Quiz Title *</label>
+            <input 
+              type="text" 
+              class="form-control" 
+              [(ngModel)]="newQuiz.title" 
+              name="title" 
+              placeholder="e.g. Graph Algorithms Mastery Test" 
+              required>
+          </div>
+
+          <div class="form-group flex-1">
+            <label class="form-label">Subject *</label>
+            <select 
+              class="form-control" 
+              [(ngModel)]="newQuiz.subjectId" 
+              name="subjectId" 
+              (change)="onNewQuizSubjectChange()" 
+              required>
+              <option *ngFor="let s of subjects" [ngValue]="s.id">{{ s.name }}</option>
+            </select>
+          </div>
+
+          <div class="form-group flex-1">
+            <label class="form-label">Associated Topic (Optional)</label>
+            <select 
+              class="form-control" 
+              [(ngModel)]="newQuiz.topicId" 
+              name="topicId">
+              <option [ngValue]="undefined">Subject-wide (General)</option>
+              <option *ngFor="let t of topicsForNewQuiz" [ngValue]="t.id">{{ t.name }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group flex-2">
+            <label class="form-label">Description</label>
+            <input 
+              type="text" 
+              class="form-control" 
+              [(ngModel)]="newQuiz.description" 
+              name="description" 
+              placeholder="e.g. Test understanding of BFS, DFS, and topological sorting">
+          </div>
+
+          <div class="form-group flex-1">
+            <label class="form-label">Duration (Minutes) *</label>
+            <input 
+              type="number" 
+              min="1" 
+              max="180" 
+              class="form-control" 
+              [(ngModel)]="newQuiz.durationMinutes" 
+              name="durationMinutes" 
+              required>
+          </div>
+
+          <div class="form-group flex-1">
+            <label class="form-label">Passing Marks *</label>
+            <input 
+              type="number" 
+              min="1" 
+              class="form-control" 
+              [(ngModel)]="newQuiz.passingMarks" 
+              name="passingMarks" 
+              required>
+          </div>
+        </div>
+
+        <!-- Dynamic Questions Builder -->
+        <div class="questions-builder-section">
+          <div class="section-title-strip">
+            <h3>Questions ({{ newQuiz.questions.length }})</h3>
+            <button type="button" class="btn btn-outline-primary btn-sm" (click)="addQuestion()">
+              ➕ Add Question
+            </button>
+          </div>
+
+          <div *ngFor="let q of newQuiz.questions; let qIdx = index" class="card question-editor-card">
+            <div class="q-editor-header">
+              <span class="q-editor-title">Question {{ qIdx + 1 }}</span>
+              <div class="q-editor-actions">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <label class="form-label" style="margin: 0;">Marks:</label>
+                  <input 
+                    type="number" 
+                    min="1" 
+                    style="width: 70px;" 
+                    class="form-control" 
+                    [(ngModel)]="q.marks" 
+                    [name]="'q_marks_' + qIdx">
+                </div>
+                <button 
+                  *ngIf="newQuiz.questions.length > 1" 
+                  type="button" 
+                  class="btn-sm btn-danger" 
+                  (click)="removeQuestion(qIdx)" 
+                  title="Remove this question">
+                  🗑 Remove
+                </button>
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-top: 12px;">
+              <label class="form-label">Question Text *</label>
+              <textarea 
+                class="form-control" 
+                rows="2" 
+                [(ngModel)]="q.questionText" 
+                [name]="'q_text_' + qIdx" 
+                placeholder="Enter multiple-choice question prompt..." 
+                required></textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Conceptual Explanation (Shown after completion)</label>
+              <input 
+                type="text" 
+                class="form-control" 
+                [(ngModel)]="q.explanation" 
+                [name]="'q_exp_' + qIdx" 
+                placeholder="Explain why the correct answer is right...">
+            </div>
+
+            <!-- Answer Options -->
+            <div class="options-builder-container">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <label class="form-label" style="margin: 0;">Answer Options (Select the correct answer):</label>
+                <button 
+                  type="button" 
+                  class="btn-sm btn-outline-secondary" 
+                  *ngIf="q.options.length < 6" 
+                  (click)="addOption(qIdx)">
+                  + Add Option
+                </button>
+              </div>
+
+              <div *ngFor="let opt of q.options; let optIdx = index" class="option-builder-row">
+                <input 
+                  type="radio" 
+                  [name]="'correct_' + qIdx" 
+                  [checked]="opt.isCorrect" 
+                  (change)="setCorrectOption(qIdx, optIdx)" 
+                  title="Mark as correct answer">
+                <input 
+                  type="text" 
+                  class="form-control flex-1" 
+                  [(ngModel)]="opt.optionText" 
+                  [name]="'opt_text_' + qIdx + '_' + optIdx" 
+                  placeholder="Option text..." 
+                  required>
+                <button 
+                  *ngIf="q.options.length > 2" 
+                  type="button" 
+                  class="btn-sm btn-icon" 
+                  (click)="removeOption(qIdx, optIdx)" 
+                  title="Remove option">
+                  ✕
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-actions-bar" style="margin-top: 24px;">
+          <button type="button" class="btn btn-secondary" (click)="backToList()">
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary" [disabled]="isLoading">
+            Publish Quiz ✓
+          </button>
+        </div>
+      </form>
+    </div>
+  </ng-container>
+</div>
+

@@ -2,12 +2,14 @@
   <!-- Page Header -->
   <div class="page-header">
     <div>
-      <h1 class="page-title">Weekly Progress Analytics</h1>
-      <p class="page-subtitle">Track your study discipline, time investment, and subject-wise completion across the current week</p>
+      <h1 class="page-title">Learning Analytics & Academic Performance</h1>
+      <p class="page-subtitle">Consolidated topic mastery, spaced repetition retention, quiz trends, and prioritized study recommendations</p>
     </div>
-    <button class="btn btn-secondary btn-sm" (click)="loadWeeklyProgress()">
-      🔄 Refresh Data
-    </button>
+    <div class="header-action-group">
+      <button class="btn btn-secondary btn-sm" (click)="loadLearningAnalytics(); loadWeeklyProgress(); loadPredictionAccuracy()">
+        🔄 Refresh Analytics
+      </button>
+    </div>
   </div>
 
   <!-- Error Alert -->
@@ -16,188 +18,590 @@
     <button class="btn-sm btn-secondary" (click)="errorMessage = ''">Dismiss</button>
   </div>
 
-  <!-- Weekly KPI Highlights -->
-  <div class="metrics-grid">
-    <div class="metric-card">
-      <div class="metric-header">
-        <span class="metric-label">Total Time Studied</span>
-        <div class="metric-icon-circle blue-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <circle cx="12" cy="12" r="10"></circle>
-            <polyline points="12 6 12 12 16 14"></polyline>
-          </svg>
-        </div>
-      </div>
-      <div class="metric-value">{{ weeklyData.totalCompletedMinutes }} <span class="metric-unit">mins</span></div>
-      <div class="metric-footer text-muted">
-        <span>≈ {{ (weeklyData.totalCompletedMinutes / 60) | number:'1.1-1' }} study hours logged</span>
-      </div>
-    </div>
-
-    <div class="metric-card">
-      <div class="metric-header">
-        <span class="metric-label">Completed Sessions</span>
-        <div class="metric-icon-circle green-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-            <polyline points="22 4 12 14.01 9 11.01"></polyline>
-          </svg>
-        </div>
-      </div>
-      <div class="metric-value text-success">{{ weeklyData.totalCompletedSessions }}</div>
-      <div class="metric-footer text-muted">
-        <span>Completed study sessions</span>
-      </div>
-    </div>
-
-    <div class="metric-card">
-      <div class="metric-header">
-        <span class="metric-label">Weekly Completion Rate</span>
-        <div class="metric-icon-circle purple-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-          </svg>
-        </div>
-      </div>
-      <div class="metric-value text-purple">{{ weeklyData.progressPercentage }}%</div>
-      <div class="metric-footer">
-        <div class="progress-track" style="margin-top: 6px;">
-          <div class="progress-fill" [style.width.%]="weeklyData.progressPercentage"></div>
-        </div>
-      </div>
-    </div>
+  <!-- Tab Navigation -->
+  <div class="analytics-tabs">
+    <button 
+      class="tab-btn" 
+      [class.active]="activeAnalyticsTab === 'MASTERY'"
+      (click)="setAnalyticsTab('MASTERY')">
+      📊 Academic Mastery & Focus
+    </button>
+    <button 
+      class="tab-btn" 
+      [class.active]="activeAnalyticsTab === 'SUBJECTS'"
+      (click)="setAnalyticsTab('SUBJECTS')">
+      📚 Subject Mastery Breakdown
+    </button>
+    <button 
+      class="tab-btn" 
+      [class.active]="activeAnalyticsTab === 'RETENTION'"
+      (click)="setAnalyticsTab('RETENTION')">
+      🧠 Spaced Repetition & Retention
+    </button>
+    <button 
+      class="tab-btn" 
+      [class.active]="activeAnalyticsTab === 'STUDY_TIME'"
+      (click)="setAnalyticsTab('STUDY_TIME')">
+      ⏱️ Study Time & ML Precision
+    </button>
   </div>
 
-  <!-- Subject-wise Breakdown Card with pure CSS Bar Chart -->
-  <div class="card" style="margin-top: 24px;">
-    <div class="card-header">
-      <h2 class="card-title">
-        <span>📊</span>
-        Subject-wise Study Time Breakdown
-      </h2>
+  <!-- ==================== TAB 1: ACADEMIC MASTERY & FOCUS ==================== -->
+  <div *ngIf="activeAnalyticsTab === 'MASTERY'">
+    <div *ngIf="isLoadingAnalytics" class="loading-state">
+      <div class="spinner"></div>
+      <p>Aggregating academic performance telemetry...</p>
     </div>
 
-    <div *ngIf="weeklyData.subjectSummaries.length === 0" class="empty-state">
-      <div class="empty-icon">📈</div>
-      <h3>No completed sessions recorded this week yet</h3>
-      <p>As you check off study sessions as completed, your subject time distribution and discipline chart will automatically appear here.</p>
-    </div>
-
-    <div *ngIf="weeklyData.subjectSummaries.length > 0" class="subject-bars-container">
-      <div *ngFor="let item of weeklyData.subjectSummaries" class="subject-bar-row">
-        <div class="subject-bar-info">
-          <span class="subject-name"><strong>{{ item.subjectName }}</strong></span>
-          <span class="subject-stats">
-            {{ item.completedMinutes }} mins ({{ item.completedSessions }} sessions)
-          </span>
+    <div *ngIf="!isLoadingAnalytics && learningSummary">
+      <!-- 4 High-Level Academic KPI Cards -->
+      <div class="metrics-grid">
+        <!-- KPI 1: Overall Mastery Score -->
+        <div class="metric-card metric-highlight">
+          <div class="metric-header">
+            <span class="metric-label">Overall Academic Mastery</span>
+            <div class="metric-icon-circle white-icon">🎓</div>
+          </div>
+          <div class="metric-value">{{ learningSummary.overallMasteryScore }}%</div>
+          <div class="metric-footer">
+            <span class="badge-growth">Level: {{ learningSummary.overallMasteryLevel }}</span>
+            <span style="font-size: 0.775rem;">{{ learningSummary.totalTopics }} total topics</span>
+          </div>
         </div>
-        <div class="bar-track">
-          <div 
-            class="bar-fill" 
-            [style.width.%]="getSubjectBarPercentage(item.completedMinutes)">
+
+        <!-- KPI 2: Spaced Repetition Retention Rate -->
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-label">Spaced Retention Rate</span>
+            <div class="metric-icon-circle green-icon">🧠</div>
+          </div>
+          <div class="metric-value text-success">{{ learningSummary.retentionRatePercentage }}%</div>
+          <div class="metric-footer text-muted">
+            <span>{{ learningSummary.totalRevisionReviews }} reviews logged (Good/Easy recall)</span>
+          </div>
+        </div>
+
+        <!-- KPI 3: Quiz Assessment Average -->
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-label">Quiz Accuracy Average</span>
+            <div class="metric-icon-circle blue-icon">📝</div>
+          </div>
+          <div class="metric-value text-primary">{{ learningSummary.overallQuizAverage }}%</div>
+          <div class="metric-footer text-muted">
+            <span>{{ learningSummary.totalQuizAttempts }} quiz attempts recorded</span>
+          </div>
+        </div>
+
+        <!-- KPI 4: Exam Readiness Tier -->
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-label">Exam Readiness Estimate</span>
+            <div class="metric-icon-circle purple-icon">🎯</div>
+          </div>
+          <div class="metric-value text-purple">{{ learningSummary.overallReadinessScore }}%</div>
+          <div class="metric-footer">
+            <span class="badge badge-sm" [ngClass]="'badge-readiness-' + learningSummary.overallReadinessLevel.toLowerCase()">
+              {{ learningSummary.overallReadinessLevel }} PREPAREDNESS
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Topic Mastery Distribution Balance Card -->
+      <div class="card" style="margin-top: 24px;">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span>⚖️</span>
+            Topic Mastery Balance & Health
+          </h2>
+        </div>
+        <div style="padding: 20px 24px;">
+          <div class="mastery-balance-legend">
+            <div class="legend-item">
+              <span class="legend-color strong-color"></span>
+              <strong>{{ learningSummary.strongTopicsCount }} Strong Topics</strong>
+              <small class="text-muted">({{ ((learningSummary.strongTopicsCount / (learningSummary.totalTopics || 1)) * 100) | number:'1.0-0' }}%)</small>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color mod-color"></span>
+              <strong>{{ learningSummary.moderateTopicsCount }} Moderate Topics</strong>
+              <small class="text-muted">({{ ((learningSummary.moderateTopicsCount / (learningSummary.totalTopics || 1)) * 100) | number:'1.0-0' }}%)</small>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color weak-color"></span>
+              <strong>{{ learningSummary.weakTopicsCount }} Weak Topics</strong>
+              <small class="text-muted">({{ ((learningSummary.weakTopicsCount / (learningSummary.totalTopics || 1)) * 100) | number:'1.0-0' }}%)</small>
+            </div>
+          </div>
+
+          <div class="mastery-stacked-track">
+            <div 
+              class="stacked-slice slice-strong" 
+              [style.width.%]="(learningSummary.strongTopicsCount / (learningSummary.totalTopics || 1)) * 100"
+              title="Strong topics"></div>
+            <div 
+              class="stacked-slice slice-mod" 
+              [style.width.%]="(learningSummary.moderateTopicsCount / (learningSummary.totalTopics || 1)) * 100"
+              title="Moderate topics"></div>
+            <div 
+              class="stacked-slice slice-weak" 
+              [style.width.%]="(learningSummary.weakTopicsCount / (learningSummary.totalTopics || 1)) * 100"
+              title="Weak topics"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recommended Study Focus for Today -->
+      <div class="card" style="margin-top: 24px;">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+          <h2 class="card-title">
+            <span>🎯</span>
+            Recommended Academic Focus for Today
+          </h2>
+          <span class="badge badge-primary">Prioritized by FocusFlow Engine</span>
+        </div>
+
+        <div *ngIf="learningSummary.recommendedStudyFocus.length === 0" class="empty-state">
+          <div class="empty-icon">🎉</div>
+          <h3>All clear! No urgent interventions needed today.</h3>
+          <p>Your topics are on track and spaced revisions are caught up. Keep up the consistent study habit!</p>
+        </div>
+
+        <div *ngIf="learningSummary.recommendedStudyFocus.length > 0" class="recommendations-grid">
+          <div *ngFor="let focus of learningSummary.recommendedStudyFocus" class="focus-card card">
+            <div class="focus-header">
+              <span class="subject-tag">{{ focus.subjectName }}</span>
+              <span class="badge" [ngClass]="'badge-' + focus.difficulty.toLowerCase()">{{ focus.difficulty }}</span>
+            </div>
+
+            <h3 class="focus-topic-title">{{ focus.topicName }}</h3>
+
+            <p class="focus-reason">
+              💡 {{ focus.reason }}
+            </p>
+
+            <div class="focus-actions">
+              <a *ngIf="focus.actionType === 'QUIZ'" routerLink="/quizzes" class="btn btn-primary btn-sm btn-block">
+                📝 Practice Quiz Now
+              </a>
+              <a *ngIf="focus.actionType === 'REVISION'" routerLink="/revisions" class="btn btn-secondary btn-sm btn-block">
+                🧠 Review Spaced Flashcards
+              </a>
+              <a *ngIf="focus.actionType === 'STUDY'" routerLink="/schedule" class="btn btn-outline-primary btn-sm btn-block">
+                ⚡ Add to Daily Study Plan
+              </a>
+            </div>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ML Prediction vs Actual Duration Accuracy Section (Phase 5) -->
-  <div class="card" style="margin-top: 24px;">
-    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-      <h2 class="card-title">
-        <span>🤖</span>
-        ML Study Duration Prediction vs. Actual Performance
-      </h2>
-      <button class="btn-sm btn-outline-secondary" (click)="loadPredictionAccuracy()" [disabled]="isLoadingHistory">
-        🔄 Refresh Metrics
-      </button>
+  <!-- ==================== TAB 2: SUBJECT MASTERY BREAKDOWN ==================== -->
+  <div *ngIf="activeAnalyticsTab === 'SUBJECTS'">
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">
+          <span>📚</span>
+          Subject Mastery & Preparation Comparison
+        </h2>
+      </div>
+
+      <div *ngIf="subjectMasteryList.length === 0" class="empty-state">
+        <div class="empty-icon">📖</div>
+        <h3>No subjects enrolled</h3>
+        <p>Add subjects in the Subjects tab to track course-level academic mastery.</p>
+      </div>
+
+      <div *ngIf="subjectMasteryList.length > 0" class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Subject</th>
+              <th>Exam Countdown</th>
+              <th>Syllabus Completion</th>
+              <th>Topic Balance (S / M / W)</th>
+              <th>Quiz Accuracy</th>
+              <th>Readiness Score</th>
+              <th>Mastery Tier</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let s of subjectMasteryList">
+              <td>
+                <strong>{{ s.subjectName }}</strong>
+                <div><span class="badge" [ngClass]="'badge-' + s.importance.toLowerCase()">{{ s.importance }}</span></div>
+              </td>
+              <td>
+                <span class="urgency-badge" [ngClass]="{
+                  'urgency-danger': s.daysUntilExam <= 3,
+                  'urgency-warning': s.daysUntilExam > 3 && s.daysUntilExam <= 7,
+                  'urgency-normal': s.daysUntilExam > 7
+                }">
+                  {{ s.daysUntilExam < 0 ? 'Passed' : s.daysUntilExam + ' days' }}
+                </span>
+              </td>
+              <td>
+                <div style="min-width: 120px;">
+                  <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 2px;">
+                    <span>{{ s.completedTopics }} / {{ s.totalTopics }} topics</span>
+                    <strong>{{ (s.topicCompletionRate * 100) | number:'1.0-0' }}%</strong>
+                  </div>
+                  <div class="mini-bar-bg">
+                    <div class="mini-bar-fill" [style.width.%]="s.topicCompletionRate * 100"></div>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <div class="pill-group">
+                  <span class="pill-sm pill-strong" title="Strong topics">{{ s.strongTopicsCount }} Strong</span>
+                  <span class="pill-sm pill-mod" title="Moderate topics">{{ s.moderateTopicsCount }} Mod</span>
+                  <span class="pill-sm pill-weak" title="Weak topics">{{ s.weakTopicsCount }} Weak</span>
+                </div>
+              </td>
+              <td>
+                <strong>{{ s.averageQuizScore }}%</strong>
+                <small class="text-muted" style="display: block;">{{ s.quizAttemptsCount }} attempt{{ s.quizAttemptsCount === 1 ? '' : 's' }}</small>
+              </td>
+              <td>
+                <span class="badge" [ngClass]="'badge-readiness-' + s.readinessLevel.toLowerCase()">
+                  {{ s.readinessScore }}% ({{ s.readinessLevel }})
+                </span>
+              </td>
+              <td>
+                <span class="badge" [ngClass]="'badge-mastery-' + s.overallMasteryLevel.toLowerCase()">
+                  {{ s.overallMasteryLevel }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TAB 3: SPACED REPETITION & RETENTION ==================== -->
+  <div *ngIf="activeAnalyticsTab === 'RETENTION'">
+    <div *ngIf="retentionTrends">
+      <!-- Retention KPI Strip -->
+      <div class="retention-strip card">
+        <div class="retention-metric">
+          <span class="ret-label">Long-Term Retention Rate</span>
+          <span class="ret-val text-success">{{ retentionTrends.retentionRatePercentage }}%</span>
+          <small class="text-muted">Proportion of reviews rated GOOD or EASY</small>
+        </div>
+        <div class="retention-metric">
+          <span class="ret-label">Total Revision Reviews</span>
+          <span class="ret-val">{{ retentionTrends.totalReviews }}</span>
+          <small class="text-muted">Completed spaced sessions</small>
+        </div>
+        <div class="retention-metric">
+          <span class="ret-label">Average Easiness Factor (EF)</span>
+          <span class="ret-val text-purple">{{ retentionTrends.averageEasinessFactor }}</span>
+          <small class="text-muted">SM-2 memory retention multiplier</small>
+        </div>
+      </div>
+
+      <!-- Recall Distribution Ribbon -->
+      <div class="card" style="margin-top: 24px;">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span>🧠</span>
+            SM-2 Recall Rating Distribution
+          </h2>
+        </div>
+        <div style="padding: 20px 24px;">
+          <div class="recall-distribution-grid">
+            <div class="recall-box box-again">
+              <span class="box-icon">🔄</span>
+              <strong class="box-count">{{ retentionTrends.againCount }}</strong>
+              <span class="box-name">AGAIN (Reset 1d)</span>
+              <span class="box-pct">
+                {{ ((retentionTrends.againCount / (retentionTrends.totalReviews || 1)) * 100) | number:'1.0-0' }}%
+              </span>
+            </div>
+            <div class="recall-box box-hard">
+              <span class="box-icon">⚠️</span>
+              <strong class="box-count">{{ retentionTrends.hardCount }}</strong>
+              <span class="box-name">HARD (Shortened)</span>
+              <span class="box-pct">
+                {{ ((retentionTrends.hardCount / (retentionTrends.totalReviews || 1)) * 100) | number:'1.0-0' }}%
+              </span>
+            </div>
+            <div class="recall-box box-good">
+              <span class="box-icon">👍</span>
+              <strong class="box-count">{{ retentionTrends.goodCount }}</strong>
+              <span class="box-name">GOOD (Standard)</span>
+              <span class="box-pct">
+                {{ ((retentionTrends.goodCount / (retentionTrends.totalReviews || 1)) * 100) | number:'1.0-0' }}%
+              </span>
+            </div>
+            <div class="recall-box box-easy">
+              <span class="box-icon">⚡</span>
+              <strong class="box-count">{{ retentionTrends.easyCount }}</strong>
+              <span class="box-name">EASY (Mastered)</span>
+              <span class="box-pct">
+                {{ ((retentionTrends.easyCount / (retentionTrends.totalReviews || 1)) * 100) | number:'1.0-0' }}%
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Revision Logs & Historical Quiz Scores Grid -->
+      <div class="analytics-subgrid" style="margin-top: 24px;">
+        <!-- Recent Recall Reviews -->
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">
+              <span>📜</span>
+              Recent Recall Reviews
+            </h3>
+          </div>
+          <div *ngIf="retentionTrends.recentReviews.length === 0" class="empty-state">
+            <p>No revision reviews recorded yet.</p>
+          </div>
+          <div *ngIf="retentionTrends.recentReviews.length > 0" class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Topic</th>
+                  <th>Rating</th>
+                  <th>Interval Growth</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let r of retentionTrends.recentReviews">
+                  <td><strong>{{ r.topicName }}</strong></td>
+                  <td>
+                    <span class="badge" [ngClass]="'rate-badge-' + r.rating.toLowerCase()">
+                      {{ r.rating }}
+                    </span>
+                  </td>
+                  <td>{{ r.previousIntervalDays }}d &rarr; <strong>{{ r.newIntervalDays }}d</strong></td>
+                  <td><small class="text-muted">{{ r.reviewedAt | date:'shortDate' }}</small></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Historical Quiz Scores Trend -->
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">
+              <span>📈</span>
+              Recent Assessment Scores
+            </h3>
+          </div>
+          <div *ngIf="retentionTrends.historicalQuizScores.length === 0" class="empty-state">
+            <p>No completed quizzes recorded yet.</p>
+          </div>
+          <div *ngIf="retentionTrends.historicalQuizScores.length > 0" class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Quiz & Course</th>
+                  <th>Score</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let q of retentionTrends.historicalQuizScores">
+                  <td>
+                    <strong>{{ q.quizTitle }}</strong>
+                    <div class="text-muted" style="font-size: 0.75rem;">{{ q.subjectName }}</div>
+                  </td>
+                  <td><strong>{{ q.scorePercentage }}%</strong></td>
+                  <td>
+                    <span class="badge" [ngClass]="q.passed ? 'badge-success' : 'badge-danger'">
+                      {{ q.passed ? 'PASSED' : 'FAILED' }}
+                    </span>
+                  </td>
+                  <td><small class="text-muted">{{ q.attemptedAt | date:'shortDate' }}</small></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TAB 4: STUDY TIME & ML PRECISION (MVP 1) ==================== -->
+  <div *ngIf="activeAnalyticsTab === 'STUDY_TIME'">
+    <!-- Weekly KPI Highlights -->
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-label">Total Time Studied</span>
+          <div class="metric-icon-circle blue-icon">⏱️</div>
+        </div>
+        <div class="metric-value">{{ weeklyData.totalCompletedMinutes }} <span class="metric-unit">mins</span></div>
+        <div class="metric-footer text-muted">
+          <span>≈ {{ (weeklyData.totalCompletedMinutes / 60) | number:'1.1-1' }} study hours logged</span>
+        </div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-label">Completed Sessions</span>
+          <div class="metric-icon-circle green-icon">✓</div>
+        </div>
+        <div class="metric-value text-success">{{ weeklyData.totalCompletedSessions }}</div>
+        <div class="metric-footer text-muted">
+          <span>Completed study sessions</span>
+        </div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-label">Weekly Completion Rate</span>
+          <div class="metric-icon-circle purple-icon">📊</div>
+        </div>
+        <div class="metric-value text-purple">{{ weeklyData.progressPercentage }}%</div>
+        <div class="metric-footer">
+          <div class="progress-track" style="margin-top: 6px;">
+            <div class="progress-fill" [style.width.%]="weeklyData.progressPercentage"></div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <!-- Accuracy Summary KPIs -->
-    <div *ngIf="accuracyItems.length > 0" class="accuracy-metrics-strip">
-      <div class="acc-metric-item">
-        <span class="acc-label">Sessions Evaluated</span>
-        <span class="acc-val">{{ accuracyMetrics.totalAnalyzed }}</span>
+    <!-- Subject-wise Breakdown Card with pure CSS Bar Chart -->
+    <div class="card" style="margin-top: 24px;">
+      <div class="card-header">
+        <h2 class="card-title">
+          <span>📊</span>
+          Subject-wise Study Time Breakdown
+        </h2>
       </div>
-      <div class="acc-metric-item highlight">
-        <span class="acc-label">Mean Absolute Error (MAE)</span>
-        <span class="acc-val text-primary">± {{ accuracyMetrics.meanAbsoluteError }} mins</span>
+
+      <div *ngIf="weeklyData.subjectSummaries.length === 0" class="empty-state">
+        <div class="empty-icon">📈</div>
+        <h3>No completed sessions recorded this week yet</h3>
+        <p>As you check off study sessions as completed, your subject time distribution and discipline chart will automatically appear here.</p>
       </div>
-      <div class="acc-metric-item">
-        <span class="acc-label">Accuracy Rate (Within ±15m)</span>
-        <span class="acc-val text-success font-bold">{{ accuracyMetrics.accuracyRatePercentage }}%</span>
-      </div>
-      <div class="acc-metric-item">
-        <span class="acc-label">Total Time: Predicted vs Actual</span>
-        <span class="acc-val">{{ accuracyMetrics.totalPredictedMinutes }}m vs {{ accuracyMetrics.totalActualMinutes }}m</span>
+
+      <div *ngIf="weeklyData.subjectSummaries.length > 0" class="subject-bars-container">
+        <div *ngFor="let item of weeklyData.subjectSummaries" class="subject-bar-row">
+          <div class="subject-bar-info">
+            <span class="subject-name"><strong>{{ item.subjectName }}</strong></span>
+            <span class="subject-stats">
+              {{ item.completedMinutes }} mins ({{ item.completedSessions }} sessions)
+            </span>
+          </div>
+          <div class="bar-track">
+            <div 
+              class="bar-fill" 
+              [style.width.%]="getSubjectBarPercentage(item.completedMinutes)">
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div *ngIf="isLoadingHistory" class="empty-state">
-      <p>Analyzing completed study history sessions...</p>
-    </div>
+    <!-- ML Prediction vs Actual Duration Accuracy Section -->
+    <div class="card" style="margin-top: 24px;">
+      <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h2 class="card-title">
+          <span>🤖</span>
+          ML Study Duration Prediction vs. Actual Performance
+        </h2>
+        <button class="btn-sm btn-outline-secondary" (click)="loadPredictionAccuracy()" [disabled]="isLoadingHistory">
+          🔄 Refresh Metrics
+        </button>
+      </div>
 
-    <div *ngIf="!isLoadingHistory && accuracyItems.length === 0" class="empty-state">
-      <div class="empty-icon">🎯</div>
-      <h3>No completed study sessions recorded yet</h3>
-      <p>Complete scheduled sessions with your recorded actual study minutes to evaluate ML model accuracy and historical variance.</p>
-    </div>
+      <!-- Accuracy Summary KPIs -->
+      <div *ngIf="accuracyItems.length > 0" class="accuracy-metrics-strip">
+        <div class="acc-metric-item">
+          <span class="acc-label">Sessions Evaluated</span>
+          <span class="acc-val">{{ accuracyMetrics.totalAnalyzed }}</span>
+        </div>
+        <div class="acc-metric-item highlight">
+          <span class="acc-label">Mean Absolute Error (MAE)</span>
+          <span class="acc-val text-primary">± {{ accuracyMetrics.meanAbsoluteError }} mins</span>
+        </div>
+        <div class="acc-metric-item">
+          <span class="acc-label">Accuracy Rate (Within ±15m)</span>
+          <span class="acc-val text-success font-bold">{{ accuracyMetrics.accuracyRatePercentage }}%</span>
+        </div>
+        <div class="acc-metric-item">
+          <span class="acc-label">Total Time: Predicted vs Actual</span>
+          <span class="acc-val">{{ accuracyMetrics.totalPredictedMinutes }}m vs {{ accuracyMetrics.totalActualMinutes }}m</span>
+        </div>
+      </div>
 
-    <!-- Accuracy Comparison Table -->
-    <div *ngIf="!isLoadingHistory && accuracyItems.length > 0" class="table-responsive" style="margin-top: 16px;">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Topic & Subject</th>
-            <th>Difficulty</th>
-            <th>Predicted Duration</th>
-            <th>Actual Duration</th>
-            <th>Variance</th>
-            <th>Engine Source</th>
-            <th>Model Precision</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let item of accuracyItems">
-            <td><strong>{{ item.scheduledDate }}</strong></td>
-            <td>
-              <strong>{{ item.topicName }}</strong>
-              <div class="text-muted" style="font-size: 0.78rem;">{{ item.subjectName }}</div>
-            </td>
-            <td>
-              <span class="badge" [ngClass]="'badge-' + item.difficulty.toLowerCase()">
-                {{ item.difficulty }}
-              </span>
-            </td>
-            <td>
-              <strong>{{ item.predictedMinutes }} mins</strong>
-            </td>
-            <td>
-              <strong class="text-success">{{ item.actualMinutes }} mins</strong>
-            </td>
-            <td>
-              <span 
-                [ngClass]="item.varianceMinutes === 0 ? 'text-muted' : (item.varianceMinutes > 0 ? 'text-warning' : 'text-primary')"
-                style="font-weight: 700;">
-                {{ item.varianceMinutes > 0 ? '+' + item.varianceMinutes : item.varianceMinutes }} mins
-              </span>
-            </td>
-            <td>
-              <span 
-                class="badge badge-sm" 
-                [ngClass]="item.predictionSource === 'EXPERIMENTAL_ML' ? 'badge-ml' : 'badge-heuristic'">
-                {{ item.predictionSource === 'EXPERIMENTAL_ML' ? '🤖 ML Model' : '⚙️ Heuristic' }}
-              </span>
-            </td>
-            <td>
-              <span class="badge" [ngClass]="item.accuracyClass">
-                {{ item.accuracyLabel }}
-              </span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div *ngIf="isLoadingHistory" class="empty-state">
+        <p>Analyzing completed study history sessions...</p>
+      </div>
+
+      <div *ngIf="!isLoadingHistory && accuracyItems.length === 0" class="empty-state">
+        <div class="empty-icon">🎯</div>
+        <h3>No completed study sessions recorded yet</h3>
+        <p>Complete scheduled sessions with your recorded actual study minutes to evaluate ML model accuracy and historical variance.</p>
+      </div>
+
+      <!-- Accuracy Comparison Table -->
+      <div *ngIf="!isLoadingHistory && accuracyItems.length > 0" class="table-responsive" style="margin-top: 16px;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Topic & Subject</th>
+              <th>Difficulty</th>
+              <th>Predicted Duration</th>
+              <th>Actual Duration</th>
+              <th>Variance</th>
+              <th>Engine Source</th>
+              <th>Model Precision</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of accuracyItems">
+              <td><strong>{{ item.scheduledDate }}</strong></td>
+              <td>
+                <strong>{{ item.topicName }}</strong>
+                <div class="text-muted" style="font-size: 0.78rem;">{{ item.subjectName }}</div>
+              </td>
+              <td>
+                <span class="badge" [ngClass]="'badge-' + item.difficulty.toLowerCase()">
+                  {{ item.difficulty }}
+                </span>
+              </td>
+              <td>
+                <strong>{{ item.predictedMinutes }} mins</strong>
+              </td>
+              <td>
+                <strong class="text-success">{{ item.actualMinutes }} mins</strong>
+              </td>
+              <td>
+                <span 
+                  [ngClass]="item.varianceMinutes === 0 ? 'text-muted' : (item.varianceMinutes > 0 ? 'text-warning' : 'text-primary')"
+                  style="font-weight: 700;">
+                  {{ item.varianceMinutes > 0 ? '+' + item.varianceMinutes : item.varianceMinutes }} mins
+                </span>
+              </td>
+              <td>
+                <span 
+                  class="badge badge-sm" 
+                  [ngClass]="item.predictionSource === 'EXPERIMENTAL_ML' ? 'badge-ml' : 'badge-heuristic'">
+                  {{ item.predictionSource === 'EXPERIMENTAL_ML' ? '🤖 ML Model' : '⚙️ Heuristic' }}
+                </span>
+              </td>
+              <td>
+                <span class="badge" [ngClass]="item.accuracyClass">
+                  {{ item.accuracyLabel }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>

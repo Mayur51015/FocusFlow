@@ -20,10 +20,14 @@ public class TopicService {
 
     private final TopicRepository topicRepository;
     private final SubjectRepository subjectRepository;
+    private final RevisionService revisionService;
 
-    public TopicService(TopicRepository topicRepository, SubjectRepository subjectRepository) {
+    public TopicService(TopicRepository topicRepository,
+                        SubjectRepository subjectRepository,
+                        @org.springframework.context.annotation.Lazy RevisionService revisionService) {
         this.topicRepository = topicRepository;
         this.subjectRepository = subjectRepository;
+        this.revisionService = revisionService;
     }
 
     public List<Topic> getAllTopics() {
@@ -78,7 +82,15 @@ public class TopicService {
             existingTopic.setSubject(subject);
         }
 
-        return topicRepository.save(existingTopic);
+        Topic saved = topicRepository.save(existingTopic);
+        if (saved.isCompleted() && revisionService != null) {
+            try {
+                revisionService.createInitialRevision(saved);
+            } catch (Exception ex) {
+                // Silently safeguard topic save from revision failure
+            }
+        }
+        return saved;
     }
 
     public Topic toggleTopicCompletion(Long id) {
@@ -87,7 +99,15 @@ public class TopicService {
         }
         Topic existingTopic = getTopicById(id);
         existingTopic.setCompleted(!existingTopic.isCompleted());
-        return topicRepository.save(existingTopic);
+        Topic saved = topicRepository.save(existingTopic);
+        if (saved.isCompleted() && revisionService != null) {
+            try {
+                revisionService.createInitialRevision(saved);
+            } catch (Exception ex) {
+                // Silently safeguard topic save from revision failure
+            }
+        }
+        return saved;
     }
 
     public void deleteTopic(Long id) {
