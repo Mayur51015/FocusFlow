@@ -2,6 +2,7 @@ package com.focusflow.service;
 
 import com.focusflow.entity.Subject;
 import com.focusflow.entity.Topic;
+import com.focusflow.exception.BadRequestException;
 import com.focusflow.exception.ResourceNotFoundException;
 import com.focusflow.repository.SubjectRepository;
 import com.focusflow.repository.TopicRepository;
@@ -30,17 +31,26 @@ public class TopicService {
     }
 
     public List<Topic> getTopicsBySubjectId(Long subjectId) {
+        if (subjectId == null) {
+            throw new BadRequestException("Subject ID cannot be null");
+        }
         return topicRepository.findBySubjectId(subjectId);
     }
 
     public Topic getTopicById(Long id) {
+        if (id == null) {
+            throw new BadRequestException("Topic ID cannot be null");
+        }
         return topicRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Topic not found with id: " + id));
     }
 
     public Topic createTopic(Topic topic) {
+        if (topic == null) {
+            throw new BadRequestException("Topic data cannot be null");
+        }
         if (topic.getSubject() == null || topic.getSubject().getId() == null) {
-            throw new IllegalArgumentException("A valid Subject must be selected for the topic");
+            throw new BadRequestException("A valid Subject must be selected for the topic");
         }
         Subject subject = subjectRepository.findById(topic.getSubject().getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Subject not found with id: " + topic.getSubject().getId()));
@@ -50,6 +60,12 @@ public class TopicService {
     }
 
     public Topic updateTopic(Long id, Topic updatedTopic) {
+        if (id == null) {
+            throw new BadRequestException("Topic ID cannot be null");
+        }
+        if (updatedTopic == null) {
+            throw new BadRequestException("Updated topic data cannot be null");
+        }
         Topic existingTopic = getTopicById(id);
         existingTopic.setName(updatedTopic.getName());
         existingTopic.setDifficulty(updatedTopic.getDifficulty());
@@ -66,12 +82,18 @@ public class TopicService {
     }
 
     public Topic toggleTopicCompletion(Long id) {
+        if (id == null) {
+            throw new BadRequestException("Topic ID cannot be null");
+        }
         Topic existingTopic = getTopicById(id);
         existingTopic.setCompleted(!existingTopic.isCompleted());
         return topicRepository.save(existingTopic);
     }
 
     public void deleteTopic(Long id) {
+        if (id == null) {
+            throw new BadRequestException("Topic ID cannot be null");
+        }
         Topic existingTopic = getTopicById(id);
         topicRepository.delete(existingTopic);
     }

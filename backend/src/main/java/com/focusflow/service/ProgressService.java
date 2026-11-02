@@ -17,6 +17,7 @@ import java.util.*;
 
 /**
  * Service class for computing Dashboard metrics and Weekly Progress Analytics.
+ * Enhanced to support all Phase 1 session statuses.
  */
 @Service
 @Transactional(readOnly = true)
@@ -45,7 +46,7 @@ public class ProgressService {
             totalPlannedMinutesToday += session.getPlannedMinutes();
             if (session.getStatus() == SessionStatus.COMPLETED) {
                 completedToday++;
-            } else {
+            } else if (session.getStatus() == SessionStatus.PLANNED || session.getStatus() == SessionStatus.IN_PROGRESS) {
                 pendingToday++;
             }
         }
@@ -84,7 +85,7 @@ public class ProgressService {
         for (StudySession session : weekSessions) {
             totalPlannedMinutes += session.getPlannedMinutes();
 
-            if (session.getStatus() == SessionStatus.COMPLETED) {
+            if (session.getStatus() == SessionStatus.COMPLETED || session.getStatus() == SessionStatus.PARTIALLY_COMPLETED) {
                 int minutes = session.getActualMinutes() > 0 ? session.getActualMinutes() : session.getPlannedMinutes();
                 totalCompletedMinutes += minutes;
                 totalCompletedSessions++;

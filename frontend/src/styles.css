@@ -349,3 +349,68 @@ p {
     padding: 16px 12px 36px;
   }
 }
+
+
+/* Phase 1 & 2 Session Badges and Action Utilities */
+.badge-in_progress {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+  animation: pulse-border 2s infinite ease-in-out;
+}
+
+.badge-partially_completed {
+  background: #f3e8ff;
+  color: #6b21a8;
+  border: 1px solid #e9d5ff;
+}
+
+.badge-missed {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.badge-rescheduled {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.badge-locked {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+.btn-warning {
+  background: #f59e0b;
+  color: #ffffff;
+}
+
+.btn-warning:hover {
+  background: #d97706;
+}
+
+.btn-info {
+  background: #0ea5e9;
+  color: #ffffff;
+}
+
+.btn-info:hover {
+  background: #0284c7;
+}
+
+.btn-outline-secondary {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.btn-outline-secondary:hover {
+  background: #f1f5f9;
+  color: var(--text-main);
+}
+
+@keyframes pulse-border {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+  50% { box-shadow: 0 0 0 4px rgba(245, 158, 11, 0); }
+}

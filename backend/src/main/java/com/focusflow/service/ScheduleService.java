@@ -1,7 +1,9 @@
 package com.focusflow.service;
 
+import com.focusflow.dto.ActualDurationUpdateRequest;
 import com.focusflow.dto.ScheduleRequest;
 import com.focusflow.dto.SessionStatusUpdateRequest;
+import com.focusflow.dto.TopicPredictionResponse;
 import com.focusflow.entity.Difficulty;
 import com.focusflow.entity.Importance;
 import com.focusflow.entity.SessionStatus;
@@ -11,28 +13,19 @@ import com.focusflow.exception.BadRequestException;
 import com.focusflow.exception.ResourceNotFoundException;
 import com.focusflow.repository.StudySessionRepository;
 import com.focusflow.repository.TopicRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * ScheduleService implements the core Greedy Scheduling Algorithm for FocusFlow.
- * 
- * ALGORITHM EXPLANATION (Great for Fresher Interviews & Viva):
- * 1. Filtering: Retrieve all incomplete topics whose subject's exam date hasn't passed.
- * 2. Scoring: Calculate a weighted Priority Score for each topic based on:
- *       - Urgency (how soon the exam is)
- *       - Importance (Subject priority: High, Medium, Low)
- *       - Difficulty (Topic complexity: Hard, Medium, Easy)
- * 3. Greedy Sorting: Sort topics in descending order of Priority Score.
- * 4. Time Allocation & Splitting: Sequentially allocate available daily study minutes
- *    to top-priority topics without exceeding the student's daily study limit.
- * 5. Deduplication: Clean up any previous plan for that date before generating fresh sessions.
+ * Enhanced for Phase 1 session tracking and Phase 4 ML-based duration prediction.
  */
 @Service
 @Transactional
@@ -40,16 +33,29 @@ public class ScheduleService {
 
     private final TopicRepository topicRepository;
     private final StudySessionRepository studySessionRepository;
+    private final MlPredictionService mlPredictionService;
 
     public ScheduleService(TopicRepository topicRepository, StudySessionRepository studySessionRepository) {
+        this(topicRepository, studySessionRepository, null);
+    }
+
+    @Autowired
+    public ScheduleService(TopicRepository topicRepository,
+                           StudySessionRepository studySessionRepository,
+                           @Autowired(required = false) MlPredictionService mlPredictionService) {
         this.topicRepository = topicRepository;
         this.studySessionRepository = studySessionRepository;
+        this.mlPredictionService = mlPredictionService;
     }
 
     /**
      * Generates a study schedule for the given date and available study hours.
+     * Preserves any existing completed, in-progress, or locked sessions.
      */
     public List<StudySession> generateSchedule(ScheduleRequest request) {
+        if (request == null) {
+            throw new BadRequestException("Schedule request cannot be null");
+        }
         LocalDate targetDate = request.getDate();
         if (targetDate == null) {
             throw new BadRequestException("Target schedule date is required");
@@ -60,19 +66,43 @@ public class ScheduleService {
             throw new BadRequestException("Available study hours must be greater than zero");
         }
 
-        // Step 1: Clean existing plan for this date to avoid duplicate sessions on regeneration
-        studySessionRepository.deleteByScheduledDate(targetDate);
+        // Step 1: Safeguard completed, in-progress, and locked sessions!
+        // Delete ONLY unstarted, unlocked PLANNED sessions on targetDate to prevent duplicate generation
+        studySessionRepository.deleteByScheduledDateAndStatusInAndLockedFalse(
+                targetDate,
+                List.of(SessionStatus.PLANNED)
+        );
         studySessionRepository.flush();
 
-        // Step 2: Retrieve all incomplete topics from MySQL
-        List<Topic> incompleteTopics = topicRepository.findByCompletedFalse();
-        if (incompleteTopics.isEmpty()) {
-            return new ArrayList<>(); // Safe return when all topics are completed
+        // Step 2: Account for study time already committed to preserved sessions on this date
+        List<StudySession> preservedSessions = studySessionRepository.findByScheduledDateOrderByIdAsc(targetDate);
+        int committedMinutes = preservedSessions.stream()
+                .mapToInt(StudySession::getPlannedMinutes)
+                .sum();
+        int remainingMinutes = Math.max(0, totalAvailableMinutes - committedMinutes);
+
+        // Track topic IDs that already have preserved sessions on this date
+        Set<Long> alreadyScheduledTopicIds = preservedSessions.stream()
+                .filter(s -> s.getTopic() != null && s.getTopic().getId() != null)
+                .map(s -> s.getTopic().getId())
+                .collect(Collectors.toSet());
+
+        if (remainingMinutes <= 0) {
+            return preservedSessions; // Available capacity already filled by preserved sessions
         }
 
-        // Step 3: Filter out topics whose subject exam date has already passed
+        // Step 3: Retrieve all incomplete topics from database
+        List<Topic> incompleteTopics = topicRepository.findByCompletedFalse();
+        if (incompleteTopics.isEmpty()) {
+            return preservedSessions; // No incomplete topics remain
+        }
+
+        // Step 4: Filter out topics whose subject exam date has already passed or are already in preserved sessions
         List<Topic> validTopics = new ArrayList<>();
         for (Topic topic : incompleteTopics) {
+            if (topic.getId() != null && alreadyScheduledTopicIds.contains(topic.getId())) {
+                continue; // Avoid duplicate scheduling of the same topic on the same date
+            }
             if (topic.getSubject() != null && topic.getSubject().getExamDate() != null) {
                 if (!topic.getSubject().getExamDate().isBefore(targetDate)) {
                     validTopics.add(topic);
@@ -81,30 +111,38 @@ public class ScheduleService {
         }
 
         if (validTopics.isEmpty()) {
-            return new ArrayList<>(); // No topics with upcoming exam dates
+            return preservedSessions;
         }
 
-        // Step 4: Sort topics descending by priority score (Greedy Choice Property)
+        // Step 5: Sort topics descending by Priority Score (Greedy Choice Property)
         validTopics.sort(Comparator.comparingDouble((Topic t) -> calculatePriorityScore(t, targetDate)).reversed());
 
-        // Step 5: Allocate available study time
-        List<StudySession> plannedSessions = new ArrayList<>();
-        int remainingMinutes = totalAvailableMinutes;
+        // Step 6: Allocate available study time greedily
+        List<StudySession> newSessions = new ArrayList<>();
 
         for (Topic topic : validTopics) {
             if (remainingMinutes <= 0) {
                 break; // Student's daily study limit reached
             }
 
-            int estimatedDuration = topic.getEstimatedMinutes();
-            if (estimatedDuration <= 0) {
+            int baselineEstimate = topic.getEstimatedMinutes();
+            if (baselineEstimate <= 0) {
                 continue; // Skip invalid topic duration safely
             }
 
+            // Phase 4: Predict realistic duration via ML Service (with graceful heuristic fallback)
+            TopicPredictionResponse prediction = (mlPredictionService != null)
+                    ? mlPredictionService.predictForTopic(topic)
+                    : null;
+
+            int targetDuration = (prediction != null && prediction.getPredictedMinutes() > 0)
+                    ? prediction.getPredictedMinutes()
+                    : baselineEstimate;
+
             int sessionDuration;
-            if (estimatedDuration <= remainingMinutes) {
+            if (targetDuration <= remainingMinutes) {
                 // Topic fits fully into the remaining daily study time
-                sessionDuration = estimatedDuration;
+                sessionDuration = targetDuration;
             } else {
                 // Topic Splitting: topic takes longer than remaining time,
                 // so we allocate whatever remaining study time is available.
@@ -118,13 +156,26 @@ public class ScheduleService {
                     0,
                     SessionStatus.PLANNED
             );
-            plannedSessions.add(session);
 
+            if (prediction != null) {
+                session.setPredictedMinutes(prediction.getPredictedMinutes());
+                session.setPredictionSource(prediction.getPredictionSource());
+            } else {
+                session.setPredictedMinutes(baselineEstimate);
+                session.setPredictionSource("HEURISTIC_FALLBACK");
+            }
+
+            newSessions.add(session);
             remainingMinutes -= sessionDuration;
         }
 
-        // Step 6: Save and return the generated sessions
-        return studySessionRepository.saveAll(plannedSessions);
+        // Save newly planned sessions
+        if (!newSessions.isEmpty()) {
+            studySessionRepository.saveAll(newSessions);
+        }
+
+        // Return all sessions scheduled for this date (preserved + new)
+        return studySessionRepository.findByScheduledDateOrderByIdAsc(targetDate);
     }
 
     /**
@@ -132,11 +183,17 @@ public class ScheduleService {
      * Formula: (Urgency Score * 3) + (Importance Score * 2) + Difficulty Score
      */
     public double calculatePriorityScore(Topic topic, LocalDate currentDate) {
-        double urgencyScore = calculateUrgencyScore(topic.getSubject().getExamDate(), currentDate);
+        if (topic == null || topic.getSubject() == null) {
+            return 0.0;
+        }
+        LocalDate examDate = topic.getSubject().getExamDate();
+        if (examDate == null || currentDate == null) {
+            return 0.0;
+        }
+        double urgencyScore = calculateUrgencyScore(examDate, currentDate);
         double importanceScore = calculateImportanceScore(topic.getSubject().getImportance());
         double difficultyScore = calculateDifficultyScore(topic.getDifficulty());
 
-        // Weighted combination: Urgency is prioritized most, followed by importance and difficulty
         return (urgencyScore * 3.0) + (importanceScore * 2.0) + difficultyScore;
     }
 
@@ -144,6 +201,9 @@ public class ScheduleService {
      * Urgency Score: Subjects with closer exam dates receive higher priority.
      */
     private double calculateUrgencyScore(LocalDate examDate, LocalDate currentDate) {
+        if (examDate == null || currentDate == null) {
+            return 0.0;
+        }
         long daysUntilExam = ChronoUnit.DAYS.between(currentDate, examDate);
 
         if (daysUntilExam < 0) {
@@ -189,24 +249,93 @@ public class ScheduleService {
      * Fetch all sessions for a specific date.
      */
     public List<StudySession> getSessionsByDate(LocalDate date) {
-        return studySessionRepository.findByScheduledDateOrderByIdAsc(date);
+        LocalDate queryDate = (date != null) ? date : LocalDate.now();
+        return studySessionRepository.findByScheduledDateOrderByIdAsc(queryDate);
     }
 
     /**
-     * Update session status and actual study duration.
+     * Update session status, timestamps, and actual study duration.
      */
     public StudySession updateSessionStatus(Long sessionId, SessionStatusUpdateRequest request) {
+        if (sessionId == null) {
+            throw new BadRequestException("Session ID cannot be null");
+        }
+        if (request == null || request.getStatus() == null) {
+            throw new BadRequestException("Session status is required");
+        }
+        if (request.getActualMinutes() < 0) {
+            throw new BadRequestException("Actual minutes cannot be negative");
+        }
+
         StudySession session = studySessionRepository.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Study session not found with id: " + sessionId));
 
-        session.setStatus(request.getStatus());
-        if (request.getActualMinutes() > 0) {
-            session.setActualMinutes(request.getActualMinutes());
-        } else if (request.getStatus() == SessionStatus.COMPLETED && session.getActualMinutes() == 0) {
-            // Default actual minutes to planned minutes if marked completed without explicit duration
-            session.setActualMinutes(session.getPlannedMinutes());
+        SessionStatus newStatus = request.getStatus();
+        session.setStatus(newStatus);
+
+        LocalDateTime now = LocalDateTime.now();
+
+        if (newStatus == SessionStatus.IN_PROGRESS) {
+            if (session.getStartTime() == null) {
+                session.setStartTime(request.getStartTime() != null ? request.getStartTime() : now);
+            }
+        } else if (newStatus == SessionStatus.COMPLETED || newStatus == SessionStatus.PARTIALLY_COMPLETED) {
+            if (session.getEndTime() == null) {
+                session.setEndTime(request.getEndTime() != null ? request.getEndTime() : now);
+            }
+            if (session.getCompletedAt() == null) {
+                session.setCompletedAt(request.getCompletedAt() != null ? request.getCompletedAt() : now);
+            }
+            if (request.getActualMinutes() > 0) {
+                session.setActualMinutes(request.getActualMinutes());
+            } else if (newStatus == SessionStatus.COMPLETED && session.getActualMinutes() == 0) {
+                // Default actual minutes to planned minutes if marked completed without explicit duration
+                session.setActualMinutes(session.getPlannedMinutes());
+            }
+        } else if (newStatus == SessionStatus.MISSED) {
+            session.setActualMinutes(0);
+            if (session.getEndTime() == null) {
+                session.setEndTime(now);
+            }
+        } else if (newStatus == SessionStatus.PLANNED) {
+            session.setActualMinutes(0);
+            session.setStartTime(null);
+            session.setEndTime(null);
+            session.setCompletedAt(null);
         }
 
+        return studySessionRepository.save(session);
+    }
+
+    /**
+     * Update only the actual study duration for a session.
+     */
+    public StudySession updateActualDuration(Long sessionId, ActualDurationUpdateRequest request) {
+        if (sessionId == null) {
+            throw new BadRequestException("Session ID cannot be null");
+        }
+        if (request == null || request.getActualMinutes() == null || request.getActualMinutes() < 0) {
+            throw new BadRequestException("Actual study duration cannot be negative");
+        }
+
+        StudySession session = studySessionRepository.findById(sessionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Study session not found with id: " + sessionId));
+
+        session.setActualMinutes(request.getActualMinutes());
+        return studySessionRepository.save(session);
+    }
+
+    /**
+     * Toggle lock status on a session to prevent automatic rescheduling/deletion.
+     */
+    public StudySession toggleSessionLock(Long sessionId) {
+        if (sessionId == null) {
+            throw new BadRequestException("Session ID cannot be null");
+        }
+        StudySession session = studySessionRepository.findById(sessionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Study session not found with id: " + sessionId));
+
+        session.setLocked(!session.isLocked());
         return studySessionRepository.save(session);
     }
 
@@ -214,6 +343,9 @@ public class ScheduleService {
      * Delete a study session.
      */
     public void deleteSession(Long sessionId) {
+        if (sessionId == null) {
+            throw new BadRequestException("Session ID cannot be null");
+        }
         StudySession session = studySessionRepository.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Study session not found with id: " + sessionId));
         studySessionRepository.delete(session);

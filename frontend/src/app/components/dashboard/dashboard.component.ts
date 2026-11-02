@@ -2,8 +2,8 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { StudySessionService } from '../../services/study-session.service';
 import { ProgressService } from '../../services/progress.service';
+import { StudySessionService } from '../../services/study-session.service';
 import { DashboardStats } from '../../models/progress.model';
 import { StudySession } from '../../models/study-session.model';
 
@@ -24,22 +24,28 @@ export class DashboardComponent implements OnInit {
   };
 
   todaySessions: StudySession[] = [];
-  todayDateStr: string = '';
-  availableHours: number = 3.0;
-
-  isLoading: boolean = false;
+  isLoading: boolean = true;
   isGenerating: boolean = false;
+  isRecalculating: boolean = false;
   errorMessage: string = '';
   successMessage: string = '';
 
+  todayDateStr: string = '';
+  availableHours: number = 2.5;
+
   constructor(
-    private studySessionService: StudySessionService,
-    private progressService: ProgressService
+    private progressService: ProgressService,
+    private studySessionService: StudySessionService
   ) {}
 
   ngOnInit(): void {
     const today = new Date();
-    this.todayDateStr = today.toISOString().split('T')[0];
+    this.todayDateStr = today.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
     this.loadDashboardData();
   }
 
@@ -47,69 +53,88 @@ export class DashboardComponent implements OnInit {
     this.isLoading = true;
     this.errorMessage = '';
 
-    // Fetch KPI stats
+    // 1. Load KPI statistics
     this.progressService.getDashboardStats().subscribe({
       next: (data) => {
         this.stats = data;
         this.isLoading = false;
       },
       error: (err) => {
-        console.error('Error fetching dashboard stats:', err);
-        this.errorMessage = 'Could not connect to backend server. Please verify MySQL and Spring Boot are running.';
+        console.error('Failed to load dashboard stats', err);
+        this.errorMessage = 'Could not load summary statistics from backend.';
         this.isLoading = false;
       }
     });
 
-    // Fetch Today's Study Sessions
-    this.loadTodaySessions();
-  }
-
-  loadTodaySessions(): void {
-    this.studySessionService.getSessionsByDate(this.todayDateStr).subscribe({
+    // 2. Load today's scheduled sessions
+    this.studySessionService.getSessionsByDate().subscribe({
       next: (sessions) => {
         this.todaySessions = sessions;
       },
       error: (err) => {
-        console.error('Error fetching sessions:', err);
+        console.error('Failed to load today sessions', err);
       }
     });
   }
 
   generateSchedule(): void {
     if (this.availableHours <= 0) {
-      this.errorMessage = 'Please enter a valid study duration greater than 0 hours.';
+      this.errorMessage = 'Please provide a valid study duration greater than 0 hours.';
       return;
     }
+
+    const todayIso = new Date().toISOString().split('T')[0];
 
     this.isGenerating = true;
     this.errorMessage = '';
     this.successMessage = '';
 
     this.studySessionService.generateSchedule({
-      date: this.todayDateStr,
+      date: todayIso,
       availableHours: this.availableHours
     }).subscribe({
       next: (sessions) => {
         this.isGenerating = false;
-        if (sessions.length === 0) {
-          this.successMessage = 'No incomplete topics available to schedule for today.';
-        } else {
-          this.successMessage = `Successfully generated ${sessions.length} study session(s) using greedy algorithm!`;
-        }
-        this.loadDashboardData();
+        this.todaySessions = sessions;
+        this.loadDashboardData(); // Refresh summary numbers
+        this.successMessage = `Smart schedule generated for today! (${sessions.length} study sessions planned)`;
       },
       error: (err) => {
         this.isGenerating = false;
-        this.errorMessage = err.error?.message || 'Failed to generate schedule. Ensure topics exist and have valid exam dates.';
+        this.errorMessage = err.error?.message || 'Failed to generate study schedule.';
+      }
+    });
+  }
+
+  recalculateSchedule(): void {
+    const todayIso = new Date().toISOString().split('T')[0];
+    this.isRecalculating = true;
+    this.errorMessage = '';
+    this.successMessage = '';
+
+    this.studySessionService.recalculateSchedule({
+      date: todayIso,
+      availableHours: this.availableHours > 0 ? this.availableHours : undefined
+    }).subscribe({
+      next: (summary) => {
+        this.isRecalculating = false;
+        this.todaySessions = summary.sessions;
+        this.loadDashboardData();
+        this.successMessage = summary.message;
+      },
+      error: (err) => {
+        this.isRecalculating = false;
+        this.errorMessage = err.error?.message || 'Failed to recalculate adaptive schedule.';
       }
     });
   }
 
   markSessionCompleted(session: StudySession): void {
     if (!session.id) return;
+    const actual = session.actualMinutes > 0 ? session.actualMinutes : session.plannedMinutes;
     this.studySessionService.updateSessionStatus(session.id, {
       status: 'COMPLETED',
-      actualMinutes: session.plannedMinutes
+      actualMinutes: actual
     }).subscribe({
       next: () => {
         this.loadDashboardData();
@@ -123,7 +148,7 @@ export class DashboardComponent implements OnInit {
   markSessionIncomplete(session: StudySession): void {
     if (!session.id) return;
     this.studySessionService.updateSessionStatus(session.id, {
-      status: 'INCOMPLETE',
+      status: 'PLANNED',
       actualMinutes: 0
     }).subscribe({
       next: () => {
@@ -133,5 +158,25 @@ export class DashboardComponent implements OnInit {
         this.errorMessage = 'Failed to update session status.';
       }
     });
+  }
+
+  getRemainingCapacityMinutes(): number {
+    const totalMinutes = Math.round(this.availableHours * 60);
+    const committed = this.todaySessions
+      .filter(s => s.status === 'COMPLETED' || s.status === 'PARTIALLY_COMPLETED' || s.status === 'IN_PROGRESS' || s.locked)
+      .reduce((acc, s) => acc + (s.actualMinutes > 0 ? s.actualMinutes : s.plannedMinutes), 0);
+    return Math.max(0, totalMinutes - committed);
+  }
+
+  getRescheduledCount(): number {
+    return this.todaySessions.filter(s => s.isRescheduled || s.rescheduled).length;
+  }
+
+  getLockedCount(): number {
+    return this.todaySessions.filter(s => s.locked).length;
+  }
+
+  getMissedCount(): number {
+    return this.todaySessions.filter(s => s.status === 'MISSED').length;
   }
 }

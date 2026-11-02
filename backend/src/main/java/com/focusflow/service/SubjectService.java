@@ -1,6 +1,7 @@
 package com.focusflow.service;
 
 import com.focusflow.entity.Subject;
+import com.focusflow.exception.BadRequestException;
 import com.focusflow.exception.ResourceNotFoundException;
 import com.focusflow.repository.SubjectRepository;
 import org.springframework.stereotype.Service;
@@ -26,15 +27,27 @@ public class SubjectService {
     }
 
     public Subject getSubjectById(Long id) {
+        if (id == null) {
+            throw new BadRequestException("Subject ID cannot be null");
+        }
         return subjectRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Subject not found with id: " + id));
     }
 
     public Subject createSubject(Subject subject) {
+        if (subject == null) {
+            throw new BadRequestException("Subject data cannot be null");
+        }
         return subjectRepository.save(subject);
     }
 
     public Subject updateSubject(Long id, Subject updatedSubject) {
+        if (id == null) {
+            throw new BadRequestException("Subject ID cannot be null");
+        }
+        if (updatedSubject == null) {
+            throw new BadRequestException("Updated subject data cannot be null");
+        }
         Subject existingSubject = getSubjectById(id);
         existingSubject.setName(updatedSubject.getName());
         existingSubject.setExamDate(updatedSubject.getExamDate());
@@ -43,6 +56,9 @@ public class SubjectService {
     }
 
     public void deleteSubject(Long id) {
+        if (id == null) {
+            throw new BadRequestException("Subject ID cannot be null");
+        }
         Subject existingSubject = getSubjectById(id);
         subjectRepository.delete(existingSubject);
     }
