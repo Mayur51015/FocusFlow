@@ -33,7 +33,14 @@ CREATE TABLE IF NOT EXISTS study_sessions (
     scheduled_date DATE NOT NULL,
     planned_minutes INT NOT NULL,
     actual_minutes INT DEFAULT 0,
-    status VARCHAR(20) DEFAULT 'PLANNED',
+    status VARCHAR(30) DEFAULT 'PLANNED',
+    start_time DATETIME NULL,
+    end_time DATETIME NULL,
+    completed_at DATETIME NULL,
+    is_rescheduled BOOLEAN DEFAULT FALSE,
+    locked BOOLEAN DEFAULT FALSE,
+    predicted_minutes INT NULL,
+    prediction_source VARCHAR(50) NULL,
     CONSTRAINT fk_sessions_topic FOREIGN KEY (topic_id) 
         REFERENCES topics(id) ON DELETE CASCADE
 );

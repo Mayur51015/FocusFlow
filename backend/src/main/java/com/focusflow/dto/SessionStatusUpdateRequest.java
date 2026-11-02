@@ -4,8 +4,10 @@ import com.focusflow.entity.SessionStatus;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
+import java.time.LocalDateTime;
+
 /**
- * Request payload for updating the status and actual study duration of a session.
+ * Request payload for updating the status, duration, and timestamps of a study session.
  */
 public class SessionStatusUpdateRequest {
 
@@ -14,6 +16,10 @@ public class SessionStatusUpdateRequest {
 
     @Min(value = 0, message = "Actual minutes cannot be negative")
     private int actualMinutes;
+
+    private LocalDateTime startTime;
+    private LocalDateTime endTime;
+    private LocalDateTime completedAt;
 
     public SessionStatusUpdateRequest() {
     }
@@ -37,5 +43,29 @@ public class SessionStatusUpdateRequest {
 
     public void setActualMinutes(int actualMinutes) {
         this.actualMinutes = actualMinutes;
+    }
+
+    public LocalDateTime getStartTime() {
+        return startTime;
+    }
+
+    public void setStartTime(LocalDateTime startTime) {
+        this.startTime = startTime;
+    }
+
+    public LocalDateTime getEndTime() {
+        return endTime;
+    }
+
+    public void setEndTime(LocalDateTime endTime) {
+        this.endTime = endTime;
+    }
+
+    public LocalDateTime getCompletedAt() {
+        return completedAt;
+    }
+
+    public void setCompletedAt(LocalDateTime completedAt) {
+        this.completedAt = completedAt;
     }
 }

@@ -1,9 +1,36 @@
 <div class="container">
   <!-- Page Header -->
-  <div class="page-header">
+  <div class="page-header header-with-actions">
     <div>
-      <h1 class="page-title">Daily Study Schedule</h1>
-      <p class="page-subtitle">Generate and track smart study sessions prioritized by your exam urgency and topic difficulty</p>
+      <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <h1 class="page-title">Daily Study Schedule & Session Tracker</h1>
+        <!-- ML Status Pill -->
+        <div 
+          *ngIf="mlHealth" 
+          class="ml-status-pill" 
+          [ngClass]="{'ml-online': mlHealth.mlAvailable, 'ml-offline': !mlHealth.mlAvailable}"
+          title="Microservice Health Status via GET /api/schedule/ml-health">
+          <span class="status-dot"></span>
+          <span *ngIf="mlHealth.mlAvailable">🤖 ML Duration Engine: Online ({{ mlHealth.modelVersion || 'v1.0' }})</span>
+          <span *ngIf="!mlHealth.mlAvailable">⚙️ ML Engine: Offline (Heuristic Fallback Active)</span>
+        </div>
+      </div>
+      <p class="page-subtitle">Track real study sessions, record actual duration, and maintain an adaptive study history</p>
+    </div>
+    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+      <button 
+        class="btn-sm btn-outline-secondary" 
+        (click)="checkMlHealth()" 
+        title="Check status of the Python ML FastAPI service">
+        🩺 ML Health
+      </button>
+      <button 
+        class="btn btn-secondary" 
+        (click)="toggleHistory()" 
+        title="View all completed and historical study sessions">
+        <span *ngIf="!showHistory">📜 View Study History</span>
+        <span *ngIf="showHistory">🗓️ Back to Today's Plan</span>
+      </button>
     </div>
   </div>
 
@@ -17,8 +44,88 @@
     <button class="btn-sm btn-secondary" (click)="successMessage = ''">Dismiss</button>
   </div>
 
-  <!-- Generator Control Bar -->
-  <div class="card generator-bar">
+  <!-- Study History View (When Toggled) -->
+  <div *ngIf="showHistory" class="card history-panel" style="margin-bottom: 24px;">
+    <div class="card-header history-header">
+      <h2 class="card-title">
+        <span>📜</span>
+        All-Time Study History & Recorded Performance
+      </h2>
+      <button class="btn-sm btn-outline-secondary" (click)="loadHistory()" [disabled]="isLoadingHistory">
+        🔄 Refresh History
+      </button>
+    </div>
+
+    <div *ngIf="isLoadingHistory" class="empty-state">
+      <p>Loading historical records from database...</p>
+    </div>
+
+    <div *ngIf="!isLoadingHistory && historyList.length === 0" class="empty-state">
+      <div class="empty-icon">📂</div>
+      <h3>No historical sessions found</h3>
+      <p>Complete study sessions to start building your historical training dataset.</p>
+    </div>
+
+    <div *ngIf="!isLoadingHistory && historyList.length > 0" class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Topic</th>
+            <th>Subject</th>
+            <th>Difficulty</th>
+            <th>Planned / Predicted</th>
+            <th>Actual Studied</th>
+            <th>Status</th>
+            <th>Completion Time</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let h of historyList">
+            <td>
+              <strong>{{ h.scheduledDate }}</strong>
+            </td>
+            <td>
+              <strong>{{ h.topicName }}</strong>
+            </td>
+            <td>
+              <span class="subject-tag">{{ h.subjectName }}</span>
+            </td>
+            <td>
+              <span class="badge" [ngClass]="'badge-' + h.difficulty.toLowerCase()">
+                {{ h.difficulty }}
+              </span>
+            </td>
+            <td>
+              <div>{{ h.plannedMinutes }} mins</div>
+              <div *ngIf="h.predictionSource" style="margin-top: 2px;">
+                <span 
+                  class="badge badge-sm" 
+                  [ngClass]="h.predictionSource === 'EXPERIMENTAL_ML' ? 'badge-ml' : 'badge-heuristic'">
+                  {{ h.predictionSource === 'EXPERIMENTAL_ML' ? '🤖 ML' : '⚙️ Heuristic' }}
+                </span>
+              </div>
+            </td>
+            <td>
+              <strong [ngClass]="{'text-success': h.actualMinutes > 0}">{{ h.actualMinutes }} mins</strong>
+            </td>
+            <td>
+              <span class="badge" [ngClass]="'badge-' + h.status.toLowerCase()">
+                {{ h.status }}
+              </span>
+            </td>
+            <td class="text-muted text-sm">
+              <span *ngIf="h.completedAt">{{ h.completedAt | date:'medium' }}</span>
+              <span *ngIf="!h.completedAt">—</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Generator Control Bar (Main Daily View) -->
+  <div *ngIf="!showHistory" class="card generator-bar">
     <div class="generator-controls">
       <div class="control-group">
         <label class="form-label">Target Date</label>
@@ -44,9 +151,18 @@
         <button 
           class="btn btn-primary" 
           (click)="generateSchedule()" 
-          [disabled]="isGenerating">
+          [disabled]="isGenerating || isRecalculating">
           <span *ngIf="isGenerating">⚡ Calculating Plan...</span>
-          <span *ngIf="!isGenerating">⚡ Generate / Regenerate Schedule</span>
+          <span *ngIf="!isGenerating">⚡ Generate Fresh Plan</span>
+        </button>
+
+        <button 
+          class="btn btn-secondary" 
+          (click)="recalculateSchedule()" 
+          [disabled]="isGenerating || isRecalculating || sessions.length === 0"
+          title="Adaptive Recalculation: Detects missed & partial sessions, redistributing remaining capacity while preserving completed and locked sessions">
+          <span *ngIf="isRecalculating">🔄 Recalculating...</span>
+          <span *ngIf="!isRecalculating">⚡ Recalculate (Adaptive)</span>
         </button>
       </div>
     </div>
@@ -58,18 +174,72 @@
         <span class="value">{{ sessions.length }}</span>
       </div>
       <div class="summary-item">
-        <span class="label">Total Planned Time:</span>
-        <span class="value">{{ getTotalPlannedMinutes() }} mins ({{ (getTotalPlannedMinutes() / 60) | number:'1.1-1' }} hrs)</span>
+        <span class="label">Completed:</span>
+        <span class="value text-success">{{ getCompletedSessionsCount() }} / {{ sessions.length }}</span>
+      </div>
+      <div class="summary-item" *ngIf="getMissedSessionsCount() > 0">
+        <span class="label">Missed:</span>
+        <span class="value text-danger font-bold">{{ getMissedSessionsCount() }}</span>
+      </div>
+      <div class="summary-item" *ngIf="getRescheduledSessionsCount() > 0">
+        <span class="label">Rescheduled:</span>
+        <span class="value text-warning font-bold">{{ getRescheduledSessionsCount() }}</span>
+      </div>
+      <div class="summary-item" *ngIf="getLockedSessionsCount() > 0">
+        <span class="label">Locked:</span>
+        <span class="value font-bold">🔒 {{ getLockedSessionsCount() }}</span>
+      </div>
+      <div class="summary-item">
+        <span class="label">Total Planned:</span>
+        <span class="value">{{ getTotalPlannedMinutes() }} mins</span>
       </div>
       <div class="summary-item">
         <span class="label">Actual Studied:</span>
-        <span class="value text-success">{{ getTotalActualMinutes() }} mins</span>
+        <span class="value text-success font-bold">{{ getTotalActualMinutes() }} mins</span>
+      </div>
+      <div class="summary-item">
+        <span class="label">Remaining Daily Capacity:</span>
+        <span class="value text-primary font-bold">{{ getRemainingDailyCapacityMinutes() }} mins</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Adaptive Schedule Summary Banner (Phase 2) -->
+  <div *ngIf="adaptiveSummary" class="card adaptive-summary-card">
+    <div class="adaptive-summary-header">
+      <div class="summary-badge-group">
+        <span class="badge badge-primary">⚡ Adaptive Recalculation</span>
+        <span *ngIf="adaptiveSummary.rescheduledSessionsCount > 0" class="badge badge-rescheduled">
+          {{ adaptiveSummary.rescheduledSessionsCount }} Rescheduled
+        </span>
+        <span *ngIf="adaptiveSummary.missedSessionsCount > 0" class="badge badge-missed">
+          {{ adaptiveSummary.missedSessionsCount }} Missed
+        </span>
+        <span *ngIf="adaptiveSummary.lockedSessionsCount > 0" class="badge badge-locked">
+          🔒 {{ adaptiveSummary.lockedSessionsCount }} Locked
+        </span>
+      </div>
+      <button class="btn-sm btn-icon" (click)="adaptiveSummary = null" title="Dismiss summary">✕</button>
+    </div>
+    <p class="adaptive-summary-message">{{ adaptiveSummary.message }}</p>
+    <div class="adaptive-metrics-grid">
+      <div class="metric-box">
+        <span class="metric-label">Total Daily Capacity</span>
+        <span class="metric-value">{{ adaptiveSummary.totalCapacityMinutes }}m</span>
+      </div>
+      <div class="metric-box">
+        <span class="metric-label">Committed (Completed / Locked)</span>
+        <span class="metric-value">{{ adaptiveSummary.committedMinutes }}m</span>
+      </div>
+      <div class="metric-box highlight">
+        <span class="metric-label">Remaining Daily Capacity</span>
+        <span class="metric-value text-success font-bold">{{ adaptiveSummary.remainingCapacityMinutes }}m</span>
       </div>
     </div>
   </div>
 
   <!-- Sessions List Table -->
-  <div class="card" style="margin-top: 24px;">
+  <div *ngIf="!showHistory" class="card" style="margin-top: 24px;">
     <div class="card-header">
       <h2 class="card-title">
         <span>🗓️</span>
@@ -87,26 +257,38 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>Order</th>
-            <th>Topic Name</th>
-            <th>Subject</th>
+            <th>#</th>
+            <th>Topic & Subject</th>
             <th>Difficulty</th>
-            <th>Planned Time</th>
-            <th>Actual Time</th>
+            <th>Planned vs Actual</th>
+            <th>Record Actual</th>
             <th>Status</th>
-            <th style="text-align: right;">Action</th>
+            <th style="text-align: right;">Study Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let s of sessions; let i = index">
+          <tr *ngFor="let s of sessions; let i = index" [ngClass]="{'row-completed': s.status === 'COMPLETED', 'row-active': s.status === 'IN_PROGRESS'}">
             <td>
-              <span class="session-index">#{{ i + 1 }}</span>
+              <div class="index-lock-wrapper">
+                <span class="session-index">#{{ i + 1 }}</span>
+                <button 
+                  class="btn-icon" 
+                  (click)="toggleLock(s)" 
+                  [title]="s.locked ? 'Locked: Will not be moved during regeneration' : 'Unlocked: Click to lock session'">
+                  <span *ngIf="s.locked">🔒</span>
+                  <span *ngIf="!s.locked" class="icon-muted">🔓</span>
+                </button>
+              </div>
             </td>
             <td>
-              <strong>{{ s.topic.name }}</strong>
-            </td>
-            <td>
-              <span class="subject-tag">{{ s.topic.subject.name }}</span>
+              <div>
+                <strong>{{ s.topic.name }}</strong>
+                <div class="subject-tag-wrapper">
+                  <span class="subject-tag">{{ s.topic.subject.name }}</span>
+                  <span *ngIf="s.isRescheduled || s.rescheduled" class="badge badge-rescheduled badge-sm">Rescheduled</span>
+                  <span *ngIf="s.locked" class="badge badge-locked badge-sm">Locked</span>
+                </div>
+              </div>
             </td>
             <td>
               <span class="badge" [ngClass]="'badge-' + s.topic.difficulty.toLowerCase()">
@@ -114,7 +296,36 @@
               </span>
             </td>
             <td>
-              <strong>{{ s.plannedMinutes }} mins</strong>
+              <div class="duration-compare">
+                <div class="duration-row">
+                  <span class="text-muted">Baseline:</span>
+                  <span>{{ s.topic.estimatedMinutes }}m</span>
+                </div>
+                <div class="duration-row">
+                  <span class="text-muted">Planned:</span>
+                  <strong>{{ s.plannedMinutes }}m</strong>
+                </div>
+                <div class="duration-row">
+                  <span class="text-muted">Actual:</span>
+                  <strong [ngClass]="{'text-success': s.actualMinutes > 0}">{{ s.actualMinutes }}m</strong>
+                </div>
+                <div class="source-tag-row">
+                  <span 
+                    *ngIf="s.predictionSource === 'EXPERIMENTAL_ML'" 
+                    class="badge badge-ml badge-interactive badge-sm" 
+                    (click)="previewPredictionForTopic(s.topic.id)" 
+                    title="Predicted by Random Forest Regressor (±6m). Click to inspect ML features.">
+                    🤖 ML ({{ s.predictedMinutes || s.plannedMinutes }}m)
+                  </span>
+                  <span 
+                    *ngIf="s.predictionSource === 'HEURISTIC_FALLBACK' || !s.predictionSource" 
+                    class="badge badge-heuristic badge-interactive badge-sm" 
+                    (click)="previewPredictionForTopic(s.topic.id)" 
+                    title="Rule-based heuristic duration estimate. Click to test ML predictor.">
+                    ⚙️ Heuristic ({{ s.predictedMinutes || s.plannedMinutes }}m)
+                  </span>
+                </div>
+              </div>
             </td>
             <td>
               <div class="actual-time-input-group">
@@ -128,43 +339,139 @@
                 <button 
                   class="btn-sm btn-secondary" 
                   (click)="saveActualMinutes(s, +actualInput.value)" 
-                  title="Save actual minutes">
-                  Save
+                  title="Save actual duration">
+                  💾 Save
                 </button>
               </div>
             </td>
             <td>
               <span class="badge" [ngClass]="'badge-' + s.status.toLowerCase()">
+                <span *ngIf="s.status === 'IN_PROGRESS'">● </span>
                 {{ s.status }}
               </span>
             </td>
             <td style="text-align: right;">
               <div class="action-buttons">
+                <!-- Start Study button -->
+                <button 
+                  *ngIf="s.status === 'PLANNED'" 
+                  class="btn btn-primary btn-sm" 
+                  (click)="startStudy(s)"
+                  title="Start deep study now">
+                  ▶ Start
+                </button>
+
+                <!-- Complete Session button -->
                 <button 
                   *ngIf="s.status !== 'COMPLETED'" 
                   class="btn btn-success btn-sm" 
-                  (click)="updateStatus(s, 'COMPLETED')"
-                  title="Mark Completed">
+                  (click)="completeSession(s)"
+                  title="Mark full session completed">
                   ✓ Done
                 </button>
+
+                <!-- Partial Complete button -->
                 <button 
-                  *ngIf="s.status === 'COMPLETED'" 
-                  class="btn btn-secondary btn-sm" 
-                  (click)="updateStatus(s, 'INCOMPLETE')"
-                  title="Mark Incomplete">
-                  ↺ Undo
+                  *ngIf="s.status !== 'COMPLETED' && s.status !== 'PARTIALLY_COMPLETED'" 
+                  class="btn btn-warning btn-sm" 
+                  (click)="markPartiallyCompleted(s)"
+                  title="Mark partially finished with actual duration">
+                  ◒ Partial
                 </button>
+
+                <!-- Mark as Missed button -->
+                <button 
+                  *ngIf="s.status === 'PLANNED' || s.status === 'IN_PROGRESS'" 
+                  class="btn btn-outline-secondary btn-sm" 
+                  (click)="markMissed(s)"
+                  title="Mark session as missed">
+                  ✕ Miss
+                </button>
+
+                <!-- Reset to Planned -->
+                <button 
+                  *ngIf="s.status === 'COMPLETED' || s.status === 'PARTIALLY_COMPLETED' || s.status === 'MISSED'" 
+                  class="btn btn-secondary btn-sm" 
+                  (click)="resetToPlanned(s)"
+                  title="Reset to planned">
+                  ↺ Reset
+                </button>
+
+                <!-- Delete Session -->
                 <button 
                   class="btn btn-danger btn-sm" 
                   (click)="deleteSession(s.id)"
                   title="Delete Session">
-                  ✕
+                  🗑
                 </button>
               </div>
             </td>
           </tr>
         </tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- ML Feature & Duration Inspector Modal -->
+  <div *ngIf="previewTopicId !== null" class="modal-overlay" (click)="closePreview()">
+    <div class="modal-card ml-preview-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="modal-title">
+          <span>🤖</span>
+          ML Study Duration Inspector
+        </h3>
+        <button class="btn-sm btn-icon" (click)="closePreview()" title="Close dialog">✕</button>
+      </div>
+
+      <div *ngIf="isLoadingPreview" class="empty-state" style="padding: 32px 16px;">
+        <div class="spinner-small">⚡</div>
+        <p style="margin-top: 12px;">Querying FocusFlow ML microservice...</p>
+      </div>
+
+      <div *ngIf="!isLoadingPreview && previewPrediction" class="ml-preview-body">
+        <div class="preview-hero">
+          <div class="preview-hero-topic">{{ previewPrediction.topicName }}</div>
+          <div class="preview-hero-minutes">
+            <span class="hero-val">{{ previewPrediction.predictedMinutes }}</span>
+            <span class="hero-unit">minutes recommended</span>
+          </div>
+          <div 
+            class="preview-source-badge" 
+            [ngClass]="previewPrediction.predictionSource === 'EXPERIMENTAL_ML' ? 'source-ml' : 'source-heuristic'">
+            {{ previewPrediction.predictionSource === 'EXPERIMENTAL_ML' ? '🤖 Random Forest Regressor (Trained ML)' : '⚙️ Heuristic Fallback Engine' }}
+          </div>
+        </div>
+
+        <div class="preview-details-grid">
+          <div class="detail-item">
+            <span class="detail-label">Baseline Topic Estimate</span>
+            <span class="detail-val">{{ previewPrediction.estimatedMinutes }} mins</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Expected Error Margin</span>
+            <span class="detail-val">± {{ previewPrediction.estimatedErrorRangeMinutes || 6 }} mins</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Model Confidence</span>
+            <span class="detail-val">{{ ((previewPrediction.confidenceScore || 0.95) * 100) | number:'1.0-0' }}%</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Model Version</span>
+            <span class="detail-val">{{ previewPrediction.modelVersion || '1.0' }}</span>
+          </div>
+        </div>
+
+        <div class="ml-preview-note">
+          <span>💡</span>
+          <div>
+            <strong>ML Feature Processing:</strong> Model adjusts study duration based on topic difficulty, historical actual performance, and past session deviations.
+          </div>
+        </div>
+
+        <div class="modal-footer" style="margin-top: 20px; display: flex; justify-content: flex-end;">
+          <button class="btn btn-secondary" (click)="closePreview()">Close</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>

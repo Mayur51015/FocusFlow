@@ -42,8 +42,8 @@
       </div>
       <div class="metric-value">{{ stats.plannedMinutesToday }} <span class="metric-unit">mins</span></div>
       <div class="metric-footer">
-        <span class="badge-growth">⚡ Daily Target</span>
-        <span>Based on today's limit</span>
+        <span class="badge-growth">⚡ Target: {{ (availableHours * 60) | number:'1.0-0' }}m</span>
+        <span style="font-size: 0.775rem;">Left: {{ getRemainingCapacityMinutes() }}m</span>
       </div>
     </div>
 
@@ -136,9 +136,20 @@
           <button 
             type="submit" 
             class="btn btn-primary btn-block" 
-            [disabled]="isGenerating">
+            [disabled]="isGenerating || isRecalculating">
             <span *ngIf="isGenerating">⚡ Generating Plan...</span>
             <span *ngIf="!isGenerating">⚡ Auto-Generate Schedule</span>
+          </button>
+
+          <button 
+            type="button" 
+            class="btn btn-outline-primary btn-block" 
+            style="margin-top: 8px;" 
+            (click)="recalculateSchedule()" 
+            [disabled]="isGenerating || isRecalculating || todaySessions.length === 0" 
+            title="Adaptively reschedule missed and incomplete topics while preserving completed sessions">
+            <span *ngIf="isRecalculating">🔄 Recalculating...</span>
+            <span *ngIf="!isRecalculating">⚡ Recalculate (Adaptive)</span>
           </button>
         </form>
 
@@ -185,7 +196,11 @@
             <tbody>
               <tr *ngFor="let session of todaySessions">
                 <td>
-                  <strong>{{ session.topic.name }}</strong>
+                  <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                    <strong>{{ session.topic.name }}</strong>
+                    <span *ngIf="session.isRescheduled || session.rescheduled" class="badge badge-rescheduled badge-sm">Rescheduled</span>
+                    <span *ngIf="session.locked" class="badge badge-locked badge-sm">Locked</span>
+                  </div>
                   <div class="text-muted" style="font-size: 0.78rem;">
                     Difficulty: <span class="badge" [ngClass]="'badge-' + session.topic.difficulty.toLowerCase()">{{ session.topic.difficulty }}</span>
                   </div>
@@ -194,7 +209,23 @@
                   <span class="subject-tag">{{ session.topic.subject.name }}</span>
                 </td>
                 <td>
-                  <strong>{{ session.plannedMinutes }} mins</strong>
+                  <div style="display: flex; flex-direction: column; gap: 3px;">
+                    <strong>{{ session.plannedMinutes }} mins</strong>
+                    <div>
+                      <span 
+                        *ngIf="session.predictionSource === 'EXPERIMENTAL_ML'" 
+                        class="badge badge-ml badge-sm" 
+                        title="Predicted by ML Random Forest Regressor (±6m expected error)">
+                        🤖 ML
+                      </span>
+                      <span 
+                        *ngIf="session.predictionSource === 'HEURISTIC_FALLBACK'" 
+                        class="badge badge-heuristic badge-sm" 
+                        title="Heuristic fallback duration">
+                        ⚙️ Heuristic
+                      </span>
+                    </div>
+                  </div>
                 </td>
                 <td>
                   <span class="badge" [ngClass]="'badge-' + session.status.toLowerCase()">

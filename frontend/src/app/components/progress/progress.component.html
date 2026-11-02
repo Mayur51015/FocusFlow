@@ -100,4 +100,104 @@
       </div>
     </div>
   </div>
+
+  <!-- ML Prediction vs Actual Duration Accuracy Section (Phase 5) -->
+  <div class="card" style="margin-top: 24px;">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <h2 class="card-title">
+        <span>🤖</span>
+        ML Study Duration Prediction vs. Actual Performance
+      </h2>
+      <button class="btn-sm btn-outline-secondary" (click)="loadPredictionAccuracy()" [disabled]="isLoadingHistory">
+        🔄 Refresh Metrics
+      </button>
+    </div>
+
+    <!-- Accuracy Summary KPIs -->
+    <div *ngIf="accuracyItems.length > 0" class="accuracy-metrics-strip">
+      <div class="acc-metric-item">
+        <span class="acc-label">Sessions Evaluated</span>
+        <span class="acc-val">{{ accuracyMetrics.totalAnalyzed }}</span>
+      </div>
+      <div class="acc-metric-item highlight">
+        <span class="acc-label">Mean Absolute Error (MAE)</span>
+        <span class="acc-val text-primary">± {{ accuracyMetrics.meanAbsoluteError }} mins</span>
+      </div>
+      <div class="acc-metric-item">
+        <span class="acc-label">Accuracy Rate (Within ±15m)</span>
+        <span class="acc-val text-success font-bold">{{ accuracyMetrics.accuracyRatePercentage }}%</span>
+      </div>
+      <div class="acc-metric-item">
+        <span class="acc-label">Total Time: Predicted vs Actual</span>
+        <span class="acc-val">{{ accuracyMetrics.totalPredictedMinutes }}m vs {{ accuracyMetrics.totalActualMinutes }}m</span>
+      </div>
+    </div>
+
+    <div *ngIf="isLoadingHistory" class="empty-state">
+      <p>Analyzing completed study history sessions...</p>
+    </div>
+
+    <div *ngIf="!isLoadingHistory && accuracyItems.length === 0" class="empty-state">
+      <div class="empty-icon">🎯</div>
+      <h3>No completed study sessions recorded yet</h3>
+      <p>Complete scheduled sessions with your recorded actual study minutes to evaluate ML model accuracy and historical variance.</p>
+    </div>
+
+    <!-- Accuracy Comparison Table -->
+    <div *ngIf="!isLoadingHistory && accuracyItems.length > 0" class="table-responsive" style="margin-top: 16px;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Topic & Subject</th>
+            <th>Difficulty</th>
+            <th>Predicted Duration</th>
+            <th>Actual Duration</th>
+            <th>Variance</th>
+            <th>Engine Source</th>
+            <th>Model Precision</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of accuracyItems">
+            <td><strong>{{ item.scheduledDate }}</strong></td>
+            <td>
+              <strong>{{ item.topicName }}</strong>
+              <div class="text-muted" style="font-size: 0.78rem;">{{ item.subjectName }}</div>
+            </td>
+            <td>
+              <span class="badge" [ngClass]="'badge-' + item.difficulty.toLowerCase()">
+                {{ item.difficulty }}
+              </span>
+            </td>
+            <td>
+              <strong>{{ item.predictedMinutes }} mins</strong>
+            </td>
+            <td>
+              <strong class="text-success">{{ item.actualMinutes }} mins</strong>
+            </td>
+            <td>
+              <span 
+                [ngClass]="item.varianceMinutes === 0 ? 'text-muted' : (item.varianceMinutes > 0 ? 'text-warning' : 'text-primary')"
+                style="font-weight: 700;">
+                {{ item.varianceMinutes > 0 ? '+' + item.varianceMinutes : item.varianceMinutes }} mins
+              </span>
+            </td>
+            <td>
+              <span 
+                class="badge badge-sm" 
+                [ngClass]="item.predictionSource === 'EXPERIMENTAL_ML' ? 'badge-ml' : 'badge-heuristic'">
+                {{ item.predictionSource === 'EXPERIMENTAL_ML' ? '🤖 ML Model' : '⚙️ Heuristic' }}
+              </span>
+            </td>
+            <td>
+              <span class="badge" [ngClass]="item.accuracyClass">
+                {{ item.accuracyLabel }}
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>

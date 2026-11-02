@@ -1,0 +1,21 @@
+{
+  "version": "1.0",
+  "algorithm": "RandomForestRegressor",
+  "feature_columns": [
+    "difficulty",
+    "estimated_minutes",
+    "historical_average_minutes",
+    "previous_study_sessions",
+    "subject_category"
+  ],
+  "target_column": "actual_minutes",
+  "metrics": {
+    "test_mae": 5.99,
+    "test_rmse": 7.65,
+    "test_r2": 0.9544
+  },
+  "trained_samples_count": 2400,
+  "test_samples_count": 600,
+  "trained_at": "2026-11-02T03:52:19.815835+00:00",
+  "synthetic_data_note": "Model trained on synthetic calibrated data for MVP 1 development and initial deployment."
+}
