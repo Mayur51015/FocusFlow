@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
@@ -73,7 +74,7 @@ public class ExamReadinessService {
     /**
      * Evaluates exam readiness for a single subject and persists the result.
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public ExamReadinessDto calculateSubjectReadiness(Long subjectId) {
         Subject subject = subjectRepository.findById(subjectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Subject not found with id: " + subjectId));
@@ -137,7 +138,7 @@ public class ExamReadinessService {
             }
         }
 
-        int daysUntilExam = (int) ChronoUnit.DAYS.between(LocalDate.now(), subject.getExamDate());
+        int daysUntilExam = subject.getExamDate() != null ? (int) ChronoUnit.DAYS.between(LocalDate.now(), subject.getExamDate()) : 0;
 
         // Prepare ML Request
         MlReadinessRequest mlReq = new MlReadinessRequest(
@@ -250,7 +251,7 @@ public class ExamReadinessService {
                     examReadinessRepository.findTopBySubjectIdOrderByEvaluatedAtDesc(s.getId())
                             .map(this::mapToDto)
                             .orElseGet(() -> {
-                                int days = (int) ChronoUnit.DAYS.between(LocalDate.now(), s.getExamDate());
+                                int days = s.getExamDate() != null ? (int) ChronoUnit.DAYS.between(LocalDate.now(), s.getExamDate()) : 0;
                                 ExamReadinessDto dto = new ExamReadinessDto();
                                 dto.setSubjectId(s.getId());
                                 dto.setSubjectName(s.getName());

@@ -1,5 +1,6 @@
-import { Component } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { Component, inject, signal } from '@angular/core';
+import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
+import { filter } from 'rxjs/operators';
 import { NavbarComponent } from './components/navbar/navbar.component';
 
 @Component({
@@ -11,4 +12,16 @@ import { NavbarComponent } from './components/navbar/navbar.component';
 })
 export class App {
   title = 'FocusFlow';
+  private router = inject(Router);
+  isPublicRoute = signal<boolean>(false);
+
+  constructor() {
+    this.router.events.pipe(
+      filter((e): e is NavigationEnd => e instanceof NavigationEnd)
+    ).subscribe((event) => {
+      const url = event.urlAfterRedirects.split('?')[0];
+      const publicPaths = ['/', '/login', '/register', '/forgot-password', '/reset-password', '/access-denied'];
+      this.isPublicRoute.set(publicPaths.includes(url));
+    });
+  }
 }

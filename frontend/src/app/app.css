@@ -2,3 +2,9 @@
   min-height: calc(100vh - 70px);
   padding-bottom: 40px;
 }
+
+.public-main {
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+}
