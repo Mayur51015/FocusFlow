@@ -1,21 +1,27 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { TopicService } from '../../services/topic.service';
 import { SubjectService } from '../../services/subject.service';
+import { TopicPerformanceService } from '../../services/topic-performance.service';
 import { Topic, Difficulty } from '../../models/topic.model';
 import { Subject } from '../../models/subject.model';
+import { TopicPerformance } from '../../models/topic-performance.model';
 
 @Component({
   selector: 'app-topics',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   templateUrl: './topics.component.html',
   styleUrls: ['./topics.component.css']
 })
 export class TopicsComponent implements OnInit {
   topics: Topic[] = [];
   subjects: Subject[] = [];
+  performancesMap: Map<number, TopicPerformance> = new Map();
+  weakTopics: TopicPerformance[] = [];
+  isEvaluating: boolean = false;
 
   selectedSubjectFilter: string = 'ALL';
 
@@ -42,12 +48,65 @@ export class TopicsComponent implements OnInit {
 
   constructor(
     private topicService: TopicService,
-    private subjectService: SubjectService
+    private subjectService: SubjectService,
+    private performanceService: TopicPerformanceService
   ) {}
 
   ngOnInit(): void {
     this.loadSubjects();
     this.loadTopics();
+    this.loadPerformances();
+  }
+
+  loadPerformances(): void {
+    this.performanceService.getAllPerformances().subscribe({
+      next: (data) => {
+        const map = new Map<number, TopicPerformance>();
+        const weaks: TopicPerformance[] = [];
+        for (const p of data) {
+          map.set(p.topicId, p);
+          if (p.performanceLevel === 'WEAK') {
+            weaks.push(p);
+          }
+        }
+        this.performancesMap = map;
+        this.weakTopics = weaks;
+      },
+      error: (err) => console.warn('Could not load topic performances:', err)
+    });
+  }
+
+  getPerformance(topicId?: number): TopicPerformance | undefined {
+    return topicId ? this.performancesMap.get(topicId) : undefined;
+  }
+
+  evaluateAllTopics(): void {
+    this.isEvaluating = true;
+    this.performanceService.evaluateAllTopics().subscribe({
+      next: (data) => {
+        this.isEvaluating = false;
+        this.successMessage = `ML Evaluation completed for ${data.length} topics!`;
+        this.loadPerformances();
+      },
+      error: (err) => {
+        this.isEvaluating = false;
+        this.errorMessage = 'Failed to evaluate topics with ML microservice.';
+      }
+    });
+  }
+
+  evaluateTopic(topicId?: number): void {
+    if (!topicId) return;
+    this.performanceService.evaluateTopic(topicId).subscribe({
+      next: (perf) => {
+        this.performancesMap.set(perf.topicId, perf);
+        this.loadPerformances();
+        this.successMessage = `Topic "${perf.topicName}" evaluated: ${perf.performanceLevel} (${perf.predictionSource})`;
+      },
+      error: (err) => {
+        this.errorMessage = 'Failed to evaluate topic performance.';
+      }
+    });
   }
 
   loadSubjects(): void {

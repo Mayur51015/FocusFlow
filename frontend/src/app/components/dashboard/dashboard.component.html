@@ -168,6 +168,71 @@
 
     <!-- Right Column: Today's Generated Sessions -->
     <div class="dashboard-main">
+      <!-- Academic Exam Readiness Card (Phase 4) -->
+      <div *ngIf="readinessOverview && readinessOverview.totalSubjects > 0" class="card" style="margin-bottom: 20px; border-left: 4px solid var(--primary); background: #ffffff;">
+        <div class="card-header">
+          <div class="card-title">
+            <span>🎓</span> Academic Exam Readiness: {{ readinessOverview.overallReadinessScore }}% ({{ readinessOverview.overallReadinessLevel }})
+          </div>
+          <a routerLink="/subjects" class="btn btn-secondary btn-sm">Subject Breakdown &rarr;</a>
+        </div>
+        <div style="padding: 16px 20px;">
+          <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 240px;">
+              <div style="display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px;">
+                <span>Preparation Level</span>
+                <span>{{ readinessOverview.overallReadinessScore }}%</span>
+              </div>
+              <div style="width: 100%; height: 8px; background: #e2e8f0; border-radius: 9999px; overflow: hidden;">
+                <div [style.width.%]="readinessOverview.overallReadinessScore" 
+                     [style.background]="readinessOverview.overallReadinessScore >= 75 ? '#22c55e' : (readinessOverview.overallReadinessScore >= 50 ? '#f59e0b' : '#ef4444')" 
+                     style="height: 100%; transition: width 0.3s ease;"></div>
+              </div>
+            </div>
+            <div style="display: flex; gap: 10px; font-size: 0.8rem; font-weight: 600;">
+              <span style="background: #f0fdf4; color: #166534; padding: 4px 10px; border-radius: 9999px; border: 1px solid #bbf7d0;">
+                {{ readinessOverview.highReadinessCount }} High
+              </span>
+              <span style="background: #fffbeb; color: #92400e; padding: 4px 10px; border-radius: 9999px; border: 1px solid #fde68a;">
+                {{ readinessOverview.moderateReadinessCount }} Moderate
+              </span>
+              <span style="background: #fef2f2; color: #991b1b; padding: 4px 10px; border-radius: 9999px; border: 1px solid #fecaca;">
+                {{ readinessOverview.lowReadinessCount }} Needs Focus
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ML Weak Topics Attention Banner (Phase 2) -->
+      <div *ngIf="weakTopics.length > 0" class="card" style="margin-bottom: 20px; border-left: 4px solid var(--danger); background: #fffbfb;">
+        <div class="card-header" style="border-bottom: 1px solid #fee2e2;">
+          <div class="card-title" style="color: #991b1b;">
+            <span>🎯</span> Academic Weak Topics Detected ({{ weakTopics.length }})
+          </div>
+          <a routerLink="/quizzes" class="btn btn-primary btn-sm">Practice Quizzes</a>
+        </div>
+        <div style="padding: 16px 20px;">
+          <p style="font-size: 0.85rem; color: #7f1d1d; margin: 0 0 12px;">
+            ML performance tracking identified topics needing revision based on quiz accuracy and study telemetry:
+          </p>
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px;">
+            <div *ngFor="let wt of weakTopics" style="background: white; border: 1px solid #fecaca; border-radius: 6px; padding: 10px 12px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <strong style="font-size: 0.9rem; color: #1e293b;">{{ wt.topicName }}</strong>
+                <span style="background: #fee2e2; color: #b91c1c; font-size: 0.7rem; font-weight: 800; padding: 2px 6px; border-radius: 4px;">WEAK</span>
+              </div>
+              <div style="font-size: 0.78rem; color: #64748b; margin-top: 2px;">
+                {{ wt.subjectName }} • Acc: {{ wt.accuracyPercentage }}% • {{ wt.predictionSource }}
+              </div>
+              <div style="font-size: 0.78rem; color: #475569; margin-top: 4px; background: #fdf2f2; padding: 4px 6px; border-radius: 4px;">
+                💡 {{ wt.recommendation }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="card">
         <div class="card-header">
           <div class="card-title">

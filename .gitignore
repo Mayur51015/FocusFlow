@@ -57,3 +57,6 @@ venv/
 application-local.properties
 .env
 *.env
+
+# Scratch scripts
+scratch/

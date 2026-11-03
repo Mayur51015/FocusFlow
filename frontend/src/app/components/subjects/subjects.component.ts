@@ -2,7 +2,9 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SubjectService } from '../../services/subject.service';
+import { ExamReadinessService } from '../../services/exam-readiness.service';
 import { Subject, Importance } from '../../models/subject.model';
+import { ExamReadiness, ExamReadinessOverview } from '../../models/exam-readiness.model';
 
 @Component({
   selector: 'app-subjects',
@@ -13,6 +15,9 @@ import { Subject, Importance } from '../../models/subject.model';
 })
 export class SubjectsComponent implements OnInit {
   subjects: Subject[] = [];
+  readinessMap: { [subjectId: number]: ExamReadiness } = {};
+  selectedReadiness: ExamReadiness | null = null;
+  readinessOverview: ExamReadinessOverview | null = null;
   
   // Form model
   currentSubject: Subject = {
@@ -24,10 +29,14 @@ export class SubjectsComponent implements OnInit {
   isEditing: boolean = false;
   editingId: number | null = null;
   isLoading: boolean = false;
+  isCalculatingReadiness: boolean = false;
   successMessage: string = '';
   errorMessage: string = '';
 
-  constructor(private subjectService: SubjectService) {}
+  constructor(
+    private subjectService: SubjectService,
+    private examReadinessService: ExamReadinessService
+  ) {}
 
   ngOnInit(): void {
     this.loadSubjects();
@@ -39,6 +48,7 @@ export class SubjectsComponent implements OnInit {
       next: (data) => {
         this.subjects = data;
         this.isLoading = false;
+        this.loadReadinessOverview();
       },
       error: (err) => {
         console.error('Failed to load subjects', err);
@@ -46,6 +56,71 @@ export class SubjectsComponent implements OnInit {
         this.isLoading = false;
       }
     });
+  }
+
+  loadReadinessOverview(): void {
+    this.examReadinessService.getReadinessOverview().subscribe({
+      next: (overview) => {
+        this.readinessOverview = overview;
+        if (overview.subjectEvaluations) {
+          for (const ev of overview.subjectEvaluations) {
+            this.readinessMap[ev.subjectId] = ev;
+          }
+        }
+      },
+      error: (err) => {
+        console.warn('Could not load readiness overview:', err);
+      }
+    });
+  }
+
+  calculateSubjectReadiness(subjectId?: number): void {
+    if (!subjectId) return;
+    this.isCalculatingReadiness = true;
+    this.examReadinessService.calculateSubjectReadiness(subjectId).subscribe({
+      next: (res) => {
+        this.readinessMap[subjectId] = res;
+        this.selectedReadiness = res;
+        this.isCalculatingReadiness = false;
+        this.successMessage = `Readiness updated for ${res.subjectName}: ${res.readinessScore}% (${res.readinessLevel})`;
+        this.loadReadinessOverview();
+      },
+      error: (err) => {
+        this.errorMessage = 'Failed to calculate readiness score.';
+        this.isCalculatingReadiness = false;
+      }
+    });
+  }
+
+  calculateAllReadiness(): void {
+    this.isCalculatingReadiness = true;
+    this.examReadinessService.calculateAllReadiness().subscribe({
+      next: (list) => {
+        for (const item of list) {
+          this.readinessMap[item.subjectId] = item;
+        }
+        this.isCalculatingReadiness = false;
+        this.successMessage = 'Evaluated exam readiness across all enrolled subjects!';
+        this.loadReadinessOverview();
+      },
+      error: (err) => {
+        this.errorMessage = 'Failed to batch evaluate exam readiness.';
+        this.isCalculatingReadiness = false;
+      }
+    });
+  }
+
+  viewReadiness(subjectId?: number): void {
+    if (!subjectId) return;
+    if (this.readinessMap[subjectId]) {
+      this.selectedReadiness = this.readinessMap[subjectId];
+    } else {
+      this.calculateSubjectReadiness(subjectId);
+    }
+  }
+
+  closeReadinessModal(): void {
+    this.selectedReadiness = null;
   }
 
   saveSubject(): void {

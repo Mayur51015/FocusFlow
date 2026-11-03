@@ -27,8 +27,10 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
           <a routerLink="/schedule" routerLinkActive="active" class="nav-item">Daily Schedule</a>
           <a routerLink="/subjects" routerLinkActive="active" class="nav-item">Subjects</a>
           <a routerLink="/topics" routerLinkActive="active" class="nav-item">Topics</a>
+          <a routerLink="/quizzes" routerLinkActive="active" class="nav-item">Quizzes</a>
+          <a routerLink="/revisions" routerLinkActive="active" class="nav-item">Revisions</a>
           <a routerLink="/pomodoro" routerLinkActive="active" class="nav-item">Pomodoro</a>
-          <a routerLink="/progress" routerLinkActive="active" class="nav-item">Weekly Analytics</a>
+          <a routerLink="/progress" routerLinkActive="active" class="nav-item">Analytics</a>
         </nav>
 
         <div class="user-badge">

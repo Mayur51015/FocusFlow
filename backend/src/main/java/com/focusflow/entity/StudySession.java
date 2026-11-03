@@ -63,6 +63,9 @@ public class StudySession {
     @Column(name = "prediction_source", length = 50)
     private String predictionSource;
 
+    @Column(name = "is_revision", nullable = false)
+    private boolean revision = false;
+
     // Default constructor (required by JPA/Hibernate)
     public StudySession() {
     }
@@ -180,5 +183,13 @@ public class StudySession {
 
     public void setPredictionSource(String predictionSource) {
         this.predictionSource = predictionSource;
+    }
+
+    public boolean isRevision() {
+        return revision;
+    }
+
+    public void setRevision(boolean revision) {
+        this.revision = revision;
     }
 }

@@ -17,6 +17,45 @@
     <button class="btn-sm btn-secondary" (click)="successMessage = ''">Dismiss</button>
   </div>
 
+  <!-- Exam Readiness Global Banner -->
+  <div *ngIf="readinessOverview && readinessOverview.totalSubjects > 0" class="card readiness-banner">
+    <div class="banner-content">
+      <div class="banner-metric">
+        <div class="gauge-circle" [ngClass]="'gauge-' + readinessOverview.overallReadinessLevel.toLowerCase()">
+          <span class="gauge-value">{{ readinessOverview.overallReadinessScore }}%</span>
+        </div>
+        <div class="banner-text">
+          <div class="banner-title-row">
+            <h3>Academic Exam Readiness</h3>
+            <span class="badge" [ngClass]="'badge-readiness-' + readinessOverview.overallReadinessLevel.toLowerCase()">
+              {{ readinessOverview.overallReadinessLevel }} READINESS
+            </span>
+          </div>
+          <p class="banner-desc">
+            Aggregated estimate based on syllabus completion (35%), quiz mastery (35%), revision consistency (20%), and recent performance trend (10%).
+          </p>
+        </div>
+      </div>
+      <div class="banner-stats">
+        <div class="stat-pill pill-high">
+          <strong>{{ readinessOverview.highReadinessCount }}</strong> High
+        </div>
+        <div class="stat-pill pill-mod">
+          <strong>{{ readinessOverview.moderateReadinessCount }}</strong> Moderate
+        </div>
+        <div class="stat-pill pill-low">
+          <strong>{{ readinessOverview.lowReadinessCount }}</strong> Needs Focus
+        </div>
+        <button 
+          class="btn btn-secondary btn-sm" 
+          [disabled]="isCalculatingReadiness"
+          (click)="calculateAllReadiness()">
+          {{ isCalculatingReadiness ? '⏳ Evaluating...' : '🔄 Recalculate All' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div class="content-layout">
     <!-- Left Column: Add / Edit Subject Form -->
     <div class="form-container">
@@ -100,6 +139,7 @@
                 <th>Exam Date</th>
                 <th>Days Left</th>
                 <th>Importance</th>
+                <th>Exam Readiness</th>
                 <th style="text-align: right;">Actions</th>
               </tr>
             </thead>
@@ -125,7 +165,32 @@
                     {{ subject.importance }}
                   </span>
                 </td>
+                <td>
+                  <div *ngIf="readinessMap[subject.id!]" class="readiness-cell" (click)="viewReadiness(subject.id)">
+                    <span 
+                      class="badge badge-readiness" 
+                      [ngClass]="'badge-readiness-' + readinessMap[subject.id!].readinessLevel.toLowerCase()">
+                      {{ readinessMap[subject.id!].readinessScore }}% ({{ readinessMap[subject.id!].readinessLevel }})
+                    </span>
+                    <small class="readiness-source-tag">
+                      {{ readinessMap[subject.id!].predictionSource === 'TRAINED_ML' ? '🤖 ML' : '⚙️ Rules' }}
+                    </small>
+                  </div>
+                  <button 
+                    *ngIf="!readinessMap[subject.id!]" 
+                    class="btn btn-secondary btn-sm" 
+                    (click)="calculateSubjectReadiness(subject.id)">
+                    📊 Evaluate
+                  </button>
+                </td>
                 <td style="text-align: right;">
+                  <button 
+                    class="btn btn-primary btn-sm" 
+                    (click)="viewReadiness(subject.id)" 
+                    style="margin-right: 6px;"
+                    title="View Readiness Breakdown">
+                    Readiness
+                  </button>
                   <button class="btn btn-secondary btn-sm" (click)="startEdit(subject)" style="margin-right: 6px;">
                     Edit
                   </button>
@@ -137,6 +202,107 @@
             </tbody>
           </table>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== EXAM READINESS DETAILS MODAL ==================== -->
+  <div *ngIf="selectedReadiness" class="modal-backdrop">
+    <div class="modal-card readiness-modal">
+      <div class="modal-header">
+        <div>
+          <h3>Exam Readiness: {{ selectedReadiness.subjectName }}</h3>
+          <span class="text-muted" style="font-size: 0.85rem;">
+            Exam: {{ selectedReadiness.examDate }} • {{ selectedReadiness.daysUntilExam }} days remaining • Priority: {{ selectedReadiness.importance }}
+          </span>
+        </div>
+        <button class="close-btn" (click)="closeReadinessModal()">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Readiness Hero Meter -->
+        <div class="readiness-hero">
+          <div class="gauge-large" [ngClass]="'gauge-' + selectedReadiness.readinessLevel.toLowerCase()">
+            <span class="gauge-large-val">{{ selectedReadiness.readinessScore }}%</span>
+            <span class="gauge-large-sub">{{ selectedReadiness.readinessLevel }}</span>
+          </div>
+
+          <div class="readiness-summary-text">
+            <h4>
+              Academic Readiness: 
+              <span class="badge" [ngClass]="'badge-readiness-' + selectedReadiness.readinessLevel.toLowerCase()">
+                {{ selectedReadiness.readinessLevel }} PREPAREDNESS
+              </span>
+            </h4>
+            <p class="text-muted" style="margin-top: 6px; font-size: 0.92rem;">
+              Calculated using the FocusFlow Academic Readiness Engine. 
+              Source: <strong>{{ selectedReadiness.predictionSource === 'TRAINED_ML' ? '🤖 Scikit-Learn Random Forest' : '⚙️ Transparent Rule-Based Engine' }}</strong>
+            </p>
+            <div style="margin-top: 10px;">
+              <button 
+                class="btn btn-secondary btn-sm" 
+                [disabled]="isCalculatingReadiness"
+                (click)="calculateSubjectReadiness(selectedReadiness.subjectId)">
+                {{ isCalculatingReadiness ? 'Evaluating...' : '🔄 Re-evaluate Subject' }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Metric Component Pillars -->
+        <h4 style="font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.03em; margin: 20px 0 10px; color: var(--text-muted);">
+          Key Readiness Components
+        </h4>
+        <div class="readiness-pillars-grid">
+          <div class="pillar-card">
+            <span class="pillar-label">Syllabus Completion (35%)</span>
+            <span class="pillar-val">{{ (selectedReadiness.topicCompletionRate * 100) | number:'1.0-0' }}%</span>
+            <div class="mini-bar-bg">
+              <div class="mini-bar-fill" [style.width.%]="selectedReadiness.topicCompletionRate * 100"></div>
+            </div>
+          </div>
+
+          <div class="pillar-card">
+            <span class="pillar-label">Quiz Mastery (35%)</span>
+            <span class="pillar-val">{{ selectedReadiness.averageQuizScore | number:'1.1-1' }}%</span>
+            <div class="mini-bar-bg">
+              <div class="mini-bar-fill fill-blue" [style.width.%]="selectedReadiness.averageQuizScore"></div>
+            </div>
+          </div>
+
+          <div class="pillar-card">
+            <span class="pillar-label">Revision Consistency (20%)</span>
+            <span class="pillar-val">{{ (selectedReadiness.revisionCompletionRate * 100) | number:'1.0-0' }}%</span>
+            <div class="mini-bar-bg">
+              <div class="mini-bar-fill fill-purple" [style.width.%]="selectedReadiness.revisionCompletionRate * 100"></div>
+            </div>
+          </div>
+
+          <div class="pillar-card">
+            <span class="pillar-label">Weak Topics Remaining</span>
+            <span class="pillar-val" [class.text-danger]="selectedReadiness.weakTopicCount > 0">
+              {{ selectedReadiness.weakTopicCount }} topic{{ selectedReadiness.weakTopicCount === 1 ? '' : 's' }}
+            </span>
+            <small class="text-muted">{{ (selectedReadiness.weakTopicRatio * 100) | number:'1.0-0' }}% of subject</small>
+          </div>
+        </div>
+
+        <!-- Recommendations Section -->
+        <h4 style="font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.03em; margin: 24px 0 10px; color: var(--text-muted);">
+          Recommended Next Actions
+        </h4>
+        <div class="recommendations-container">
+          <ul class="recs-list">
+            <li *ngFor="let rec of selectedReadiness.recommendations" class="rec-item">
+              <span class="rec-bullet">👉</span>
+              <span>{{ rec }}</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeReadinessModal()">Close</button>
       </div>
     </div>
   </div>

@@ -17,6 +17,36 @@
     <button class="btn-sm btn-secondary" (click)="successMessage = ''">Dismiss</button>
   </div>
 
+  <!-- Weak Topics Attention Radar Banner (Phase 2) -->
+  <div *ngIf="weakTopics.length > 0" class="weak-topics-radar card">
+    <div class="radar-header">
+      <div class="radar-title">
+        <span class="radar-icon">🎯</span>
+        <div>
+          <h3>Weak Academic Topics Detected ({{ weakTopics.length }})</h3>
+          <p>These topics require additional reinforcement based on quiz accuracy and study telemetry.</p>
+        </div>
+      </div>
+      <a routerLink="/quizzes" class="btn btn-primary btn-sm">Attempt Quizzes</a>
+    </div>
+    <div class="weak-tags-grid">
+      <div *ngFor="let wt of weakTopics" class="weak-tag-card">
+        <div class="weak-tag-top">
+          <span class="weak-topic-name">{{ wt.topicName }}</span>
+          <span class="weak-badge">WEAK</span>
+        </div>
+        <div class="weak-tag-meta">
+          <span>{{ wt.subjectName }}</span> •
+          <span>Quiz Acc: {{ wt.accuracyPercentage }}%</span> •
+          <span>{{ wt.predictionSource }}</span>
+        </div>
+        <div class="weak-tag-rec" *ngIf="wt.recommendation">
+          💡 {{ wt.recommendation }}
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="content-layout">
     <!-- Left Column: Topic Form -->
     <div class="form-container">
@@ -110,9 +140,17 @@
             All Topics ({{ topics.length }})
           </h2>
 
-          <!-- Filter Dropdown -->
-          <div class="filter-wrapper">
-            <label style="font-size: 0.8rem; font-weight: 600; margin-right: 6px;">Filter Subject:</label>
+          <!-- Filter Dropdown & Evaluate Button -->
+          <div class="filter-wrapper" style="display: flex; gap: 8px; align-items: center;">
+            <button 
+              type="button" 
+              class="btn btn-secondary btn-sm" 
+              (click)="evaluateAllTopics()" 
+              [disabled]="isEvaluating"
+              title="Run ML Weak Topic Classifier across all topics">
+              {{ isEvaluating ? 'Evaluating...' : '⚡ Evaluate with ML' }}
+            </button>
+            <label style="font-size: 0.8rem; font-weight: 600; margin-left: 6px;">Filter:</label>
             <select class="form-control filter-select" [(ngModel)]="selectedSubjectFilter" (change)="loadTopics()">
               <option value="ALL">All Subjects</option>
               <option *ngFor="let s of subjects" [value]="s.id">{{ s.name }}</option>
@@ -135,6 +173,7 @@
                 <th>Subject</th>
                 <th>Difficulty</th>
                 <th>Est. Time</th>
+                <th>Mastery Level</th>
                 <th style="text-align: right;">Actions</th>
               </tr>
             </thead>
@@ -162,8 +201,30 @@
                   </span>
                 </td>
                 <td>{{ topic.estimatedMinutes }} mins</td>
+                <td>
+                  <ng-container *ngIf="getPerformance(topic.id) as perf; else unassessed">
+                    <div style="display: flex; flex-direction: column; gap: 2px;">
+                      <span class="badge" [ngClass]="'perf-' + perf.performanceLevel.toLowerCase()">
+                        {{ perf.performanceLevel }}
+                      </span>
+                      <small style="color: var(--text-muted); font-size: 0.75rem;">
+                        Acc: {{ perf.accuracyPercentage }}% • {{ perf.predictionSource }}
+                      </small>
+                    </div>
+                  </ng-container>
+                  <ng-template #unassessed>
+                    <span class="badge perf-unassessed">UNASSESSED</span>
+                  </ng-template>
+                </td>
                 <td style="text-align: right;">
-                  <button class="btn btn-secondary btn-sm" (click)="startEdit(topic)" style="margin-right: 6px;">
+                  <button 
+                    class="btn btn-secondary btn-sm" 
+                    (click)="evaluateTopic(topic.id)" 
+                    style="margin-right: 4px;"
+                    title="Evaluate this topic with ML">
+                    Assess
+                  </button>
+                  <button class="btn btn-secondary btn-sm" (click)="startEdit(topic)" style="margin-right: 4px;">
                     Edit
                   </button>
                   <button class="btn btn-danger btn-sm" (click)="deleteTopic(topic.id)">
