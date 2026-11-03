@@ -1,5 +1,6 @@
 package com.focusflow.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Min;
@@ -9,15 +10,23 @@ import java.time.LocalDateTime;
 
 /**
  * StudySession Entity represents a scheduled study block for a specific date.
- * Enhanced for Phase 1 session tracking and adaptive scheduling.
+ * Enhanced for Phase 1 user ownership and verified tenant isolation.
  */
 @Entity
-@Table(name = "study_sessions")
+@Table(name = "study_sessions", indexes = {
+    @Index(name = "idx_study_sessions_user_date", columnList = "user_id, scheduled_date"),
+    @Index(name = "idx_study_sessions_topic", columnList = "topic_id")
+})
 public class StudySession {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    @JsonIgnore
+    private User user;
 
     @NotNull(message = "Topic is required for a study session")
     @ManyToOne(fetch = FetchType.EAGER)
@@ -77,6 +86,19 @@ public class StudySession {
         this.plannedMinutes = plannedMinutes;
         this.actualMinutes = actualMinutes;
         this.status = status;
+        if (topic != null && topic.getUser() != null) {
+            this.user = topic.getUser();
+        }
+    }
+
+    // Parameterized constructor with explicit user ownership
+    public StudySession(Topic topic, LocalDate scheduledDate, int plannedMinutes, int actualMinutes, SessionStatus status, User user) {
+        this.topic = topic;
+        this.scheduledDate = scheduledDate;
+        this.plannedMinutes = plannedMinutes;
+        this.actualMinutes = actualMinutes;
+        this.status = status;
+        this.user = user != null ? user : (topic != null ? topic.getUser() : null);
     }
 
     // Getters and Setters
@@ -88,12 +110,29 @@ public class StudySession {
         this.id = id;
     }
 
+    public User getUser() {
+        return user != null ? user : (topic != null ? topic.getUser() : null);
+    }
+
+    public void setUser(User user) {
+        this.user = user;
+    }
+
+    @JsonProperty("userId")
+    public Long getUserId() {
+        User u = getUser();
+        return u != null ? u.getId() : null;
+    }
+
     public Topic getTopic() {
         return topic;
     }
 
     public void setTopic(Topic topic) {
         this.topic = topic;
+        if (this.user == null && topic != null && topic.getUser() != null) {
+            this.user = topic.getUser();
+        }
     }
 
     public LocalDate getScheduledDate() {

@@ -1,6 +1,8 @@
 package com.focusflow.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -10,15 +12,22 @@ import java.util.List;
 
 /**
  * Subject Entity represents a course or subject a student is studying.
- * Contains the exam date and priority level.
+ * Multi-user ownership is enforced via the user foreign key.
  */
 @Entity
-@Table(name = "subjects")
+@Table(name = "subjects", indexes = {
+    @Index(name = "idx_subjects_user", columnList = "user_id")
+})
 public class Subject {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    @JsonIgnore
+    private User user;
 
     @NotBlank(message = "Subject name cannot be empty")
     @Column(nullable = false, length = 100)
@@ -41,11 +50,19 @@ public class Subject {
     public Subject() {
     }
 
-    // Parameterized constructor for convenience
+    // Parameterized constructor for backward compatibility
     public Subject(String name, LocalDate examDate, Importance importance) {
         this.name = name;
         this.examDate = examDate;
         this.importance = importance;
+    }
+
+    // Parameterized constructor with User ownership
+    public Subject(String name, LocalDate examDate, Importance importance, User user) {
+        this.name = name;
+        this.examDate = examDate;
+        this.importance = importance;
+        this.user = user;
     }
 
     // Getters and Setters
@@ -55,6 +72,19 @@ public class Subject {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
+    }
+
+    @JsonProperty("userId")
+    public Long getUserId() {
+        return user != null ? user.getId() : null;
     }
 
     public String getName() {

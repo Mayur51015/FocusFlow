@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
  * subject mastery metrics, spaced repetition retention rates, and recommended study focus.
  */
 @Service
-@Transactional(readOnly = true)
+@Transactional
 public class AnalyticsService {
 
     private static final Logger logger = LoggerFactory.getLogger(AnalyticsService.class);
@@ -137,7 +137,13 @@ public class AnalyticsService {
      * Calculates mastery and exam readiness breakdowns per subject.
      */
     public List<SubjectMasteryDto> getSubjectMastery() {
-        List<Subject> subjects = subjectRepository.findAll();
+        return getSubjectMastery(null);
+    }
+
+    public List<SubjectMasteryDto> getSubjectMastery(Long userId) {
+        List<Subject> subjects = (userId != null)
+                ? subjectRepository.findByUserId(userId)
+                : subjectRepository.findAll();
         List<SubjectMasteryDto> results = new ArrayList<>();
 
         for (Subject s : subjects) {
@@ -146,7 +152,7 @@ public class AnalyticsService {
             dto.setSubjectName(s.getName());
             dto.setImportance(s.getImportance() != null ? s.getImportance().name() : "MEDIUM");
             dto.setExamDate(s.getExamDate());
-            int daysLeft = (int) ChronoUnit.DAYS.between(LocalDate.now(), s.getExamDate());
+            int daysLeft = s.getExamDate() != null ? (int) ChronoUnit.DAYS.between(LocalDate.now(), s.getExamDate()) : 0;
             dto.setDaysUntilExam(daysLeft);
 
             List<Topic> topics = topicRepository.findBySubjectId(s.getId());
@@ -189,7 +195,7 @@ public class AnalyticsService {
             try {
                 ExamReadinessDto er = examReadinessService.getSubjectReadiness(s.getId());
                 dto.setReadinessScore(er.getReadinessScore());
-                dto.setReadinessLevel(er.getReadinessLevel().name());
+                dto.setReadinessLevel(er.getReadinessLevel() != null ? er.getReadinessLevel().name() : "LOW");
             } catch (Exception e) {
                 dto.setReadinessScore(0.0);
                 dto.setReadinessLevel("LOW");
@@ -337,7 +343,7 @@ public class AnalyticsService {
 
         // 3. Urgent Exam upcoming with incomplete topics
         for (Topic t : allTopics) {
-            if (!t.isCompleted()) {
+            if (!t.isCompleted() && t.getSubject() != null && t.getSubject().getExamDate() != null) {
                 int daysUntilExam = (int) ChronoUnit.DAYS.between(LocalDate.now(), t.getSubject().getExamDate());
                 if (daysUntilExam <= 3) {
                     boolean alreadyAdded = recommendations.stream().anyMatch(r -> r.getTopicId().equals(t.getId()));

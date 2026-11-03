@@ -1,0 +1,577 @@
+<div class="admin-wrapper">
+  <!-- Top Admin Control Header -->
+  <header class="admin-header">
+    <div class="header-left">
+      <div class="admin-shield-badge">🛡️</div>
+      <div>
+        <div class="header-title-row">
+          <h1 class="admin-title">FocusFlow Enterprise Administration</h1>
+          <span class="system-status-pill status-healthy">● System Active</span>
+        </div>
+        <p class="admin-subtitle">Role-Based Access Control, Tenant Isolation, Traffic Telemetry & Security Diagnostics</p>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <button
+        class="btn-control"
+        [class.btn-control-active]="autoRefresh()"
+        (click)="toggleAutoRefresh()"
+        title="Toggle periodic 8s polling"
+      >
+        <span>{{ autoRefresh() ? 'Auto-Refresh: ON (8s)' : 'Auto-Refresh: OFF' }}</span>
+      </button>
+
+      <button class="btn-control" (click)="loadAll()" [disabled]="loading()" title="Fetch latest telemetry">
+        <svg [class.spin]="loading()" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <polyline points="1 20 1 14 7 14"></polyline>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+        </svg>
+        <span>Refresh Now</span>
+      </button>
+
+      <a routerLink="/dashboard" class="btn-workspace-link">
+        <span>Student Workspace ➔</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- Notification Banner -->
+  @if (actionMessage()) {
+    <div class="action-alert" [class.alert-success]="actionMessage()?.type === 'success'" [class.alert-error]="actionMessage()?.type === 'error'">
+      <span>{{ actionMessage()?.text }}</span>
+      <button (click)="actionMessage.set(null)" class="alert-close">✕</button>
+    </div>
+  }
+
+  <!-- Tab Navigation -->
+  <nav class="admin-tabs" role="tablist">
+    <button class="tab-btn" [class.active]="activeTab() === 'overview'" (click)="setTab('overview')">
+      <span>📊 Platform Overview</span>
+    </button>
+    <button class="tab-btn" [class.active]="activeTab() === 'users'" (click)="setTab('users')">
+      <span>👥 User Management ({{ users().length }})</span>
+    </button>
+    <button class="tab-btn" [class.active]="activeTab() === 'traffic'" (click)="setTab('traffic')">
+      <span>📈 Traffic & Telemetry</span>
+    </button>
+    <button class="tab-btn" [class.active]="activeTab() === 'services'" (click)="setTab('services')">
+      <span>⚙️ Service Health</span>
+    </button>
+    <button class="tab-btn" [class.active]="activeTab() === 'security'" (click)="setTab('security')">
+      <span>🔒 Security & Lockouts</span>
+      @if (security()?.bruteForceAlert) {
+        <span class="badge-alert">!</span>
+      }
+    </button>
+    <button class="tab-btn" [class.active]="activeTab() === 'audit'" (click)="setTab('audit')">
+      <span>📋 Audit Trail ({{ auditLogs().length }})</span>
+    </button>
+  </nav>
+
+  <!-- TAB 1: PLATFORM OVERVIEW -->
+  @if (activeTab() === 'overview') {
+    <section class="tab-content">
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-label">Total Accounts</span>
+            <span class="kpi-icon">👥</span>
+          </div>
+          <div class="kpi-value">{{ overview()?.totalUsers ?? '...' }}</div>
+          <div class="kpi-subtext">{{ overview()?.studentCount ?? 0 }} Students • {{ overview()?.adminCount ?? 0 }} Administrators</div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-label">Active Users</span>
+            <span class="kpi-icon">🟢</span>
+          </div>
+          <div class="kpi-value text-success">{{ overview()?.activeUsers ?? '...' }}</div>
+          <div class="kpi-subtext">{{ overview()?.disabledUsers ?? 0 }} accounts disabled</div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-label">Locked Accounts</span>
+            <span class="kpi-icon">🔒</span>
+          </div>
+          <div class="kpi-value text-danger">{{ overview()?.lockedUsers ?? '0' }}</div>
+          <div class="kpi-subtext">Automated rate-limiter protection</div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-label">Academic Subjects</span>
+            <span class="kpi-icon">📚</span>
+          </div>
+          <div class="kpi-value">{{ overview()?.totalSubjects ?? '...' }}</div>
+          <div class="kpi-subtext">Isolated across student tenants</div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-label">Study Sessions Logged</span>
+            <span class="kpi-icon">⏱️</span>
+          </div>
+          <div class="kpi-value">{{ overview()?.totalStudySessions ?? '...' }}</div>
+          <div class="kpi-subtext">Algorithmically scheduled</div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-label">Engine Health</span>
+            <span class="kpi-icon">⚡</span>
+          </div>
+          <div class="kpi-value text-primary">{{ overview()?.systemStatus ?? 'HEALTHY' }}</div>
+          <div class="kpi-subtext">Uptime: {{ formatUptime(serviceMetrics()?.uptimeSeconds) }}</div>
+        </div>
+      </div>
+
+      <!-- Quick Platform Architecture Card -->
+      <div class="info-card">
+        <h3 class="card-heading">Platform Architecture & Security Summary</h3>
+        <div class="arch-grid">
+          <div class="arch-box">
+            <div class="arch-title">🛡️ Authentication</div>
+            <p>Spring Security 6 stateless JWT with BCrypt work factor 10, HttpOnly SameSite refresh token rotation, and 5-failure rate limiting.</p>
+          </div>
+          <div class="arch-box">
+            <div class="arch-title">🔐 Role-Based Access Control</div>
+            <p>Strict server-side <code>@PreAuthorize("hasRole('ROLE_ADMIN')")</code> enforcement on all administrative actions. Tenant isolation on student entities.</p>
+          </div>
+          <div class="arch-box">
+            <div class="arch-title">📜 Immutable Auditing</div>
+            <p>Every privileged status change, role modification, and password reset is logged to the MySQL <code>audit_logs</code> table with IP and client signature.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  }
+
+  <!-- TAB 2: USER MANAGEMENT -->
+  @if (activeTab() === 'users') {
+    <section class="tab-content">
+      <div class="toolbar-row">
+        <div class="search-box">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input
+            type="text"
+            [ngModel]="userSearch()"
+            (ngModelChange)="userSearch.set($event)"
+            placeholder="Search by name, email, or user ID..."
+            class="search-input"
+          />
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-label">Filter Role:</label>
+          <select [ngModel]="userRoleFilter()" (ngModelChange)="userRoleFilter.set($event)" class="select-filter">
+            <option value="ALL">All Roles</option>
+            <option value="ROLE_USER">Students (ROLE_USER)</option>
+            <option value="ROLE_ADMIN">Administrators (ROLE_ADMIN)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- User Data Table -->
+      <div class="table-card">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Full Name</th>
+              <th>Email Address</th>
+              <th>Assigned Role</th>
+              <th>Status</th>
+              <th>Security</th>
+              <th>Registered</th>
+              <th class="text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (user of filteredUsers(); track user.id) {
+              <tr>
+                <td class="cell-id">#{{ user.id }}</td>
+                <td class="cell-strong">{{ user.fullName }}</td>
+                <td class="cell-email">{{ user.email }}</td>
+                <td>
+                  <span class="role-chip" [class.chip-admin]="user.role === 'ROLE_ADMIN'">
+                    {{ user.role === 'ROLE_ADMIN' ? 'Administrator' : 'Student' }}
+                  </span>
+                </td>
+                <td>
+                  <span class="status-indicator" [class.indicator-active]="user.enabled" [class.indicator-disabled]="!user.enabled">
+                    ● {{ user.enabled ? 'Enabled' : 'Disabled' }}
+                  </span>
+                </td>
+                <td>
+                  @if (!user.accountNonLocked) {
+                    <span class="security-chip chip-locked">Locked (Failed Logins)</span>
+                  } @else {
+                    <span class="security-chip chip-clean">Normal</span>
+                  }
+                </td>
+                <td class="cell-date">{{ user.createdAt ? (user.createdAt | date:'shortDate') : 'Pre-migration' }}</td>
+                <td class="text-right">
+                  <div class="table-actions">
+                    <!-- Enable / Disable -->
+                    <button
+                      class="btn-action"
+                      [class.btn-action-warn]="user.enabled"
+                      (click)="toggleStatus(user, 'enabled')"
+                      title="{{ user.enabled ? 'Disable user access' : 'Enable user account' }}"
+                    >
+                      {{ user.enabled ? 'Disable' : 'Enable' }}
+                    </button>
+
+                    <!-- Unlock Account (if locked) -->
+                    @if (!user.accountNonLocked) {
+                      <button
+                        class="btn-action btn-action-unlock"
+                        (click)="toggleStatus(user, 'lock')"
+                        title="Unlock account and reset failed counters"
+                      >
+                        Unlock
+                      </button>
+                    }
+
+                    <!-- Role Selector -->
+                    <select
+                      class="select-role-mini"
+                      [value]="user.role"
+                      (change)="changeRole(user, $any($event.target).value)"
+                    >
+                      <option value="ROLE_USER">Student</option>
+                      <option value="ROLE_ADMIN">Admin</option>
+                    </select>
+
+                    <!-- Admin Reset Password -->
+                    <button
+                      class="btn-action btn-action-key"
+                      (click)="resetPassword(user)"
+                      title="Generate temporary password"
+                    >
+                      Reset Pass
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="8" class="empty-row">No users matching search filters.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  }
+
+  <!-- TAB 3: TRAFFIC & TELEMETRY -->
+  @if (activeTab() === 'traffic') {
+    <section class="tab-content">
+      <div class="metrics-row">
+        <div class="metric-card">
+          <div class="metric-title">Total API Requests</div>
+          <div class="metric-number">{{ traffic()?.totalRequests ?? 0 }}</div>
+          <div class="metric-desc">Lifetime HTTP requests processed</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-title">Throughput Rate</div>
+          <div class="metric-number">{{ traffic()?.requestsPerMinute ?? 0 }} <span class="unit">req/min</span></div>
+          <div class="metric-desc">Real-time rolling velocity</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-title">Average Latency</div>
+          <div class="metric-number">{{ traffic()?.avgLatencyMs ?? 0 }} <span class="unit">ms</span></div>
+          <div class="metric-desc">Server-side execution time</div>
+        </div>
+      </div>
+
+      <div class="traffic-grid">
+        <!-- Top Endpoints -->
+        <div class="traffic-card">
+          <h3 class="card-heading">Top Utilized API Endpoints</h3>
+          <div class="endpoint-list">
+            @for (ep of traffic()?.topEndpoints; track ep.endpoint) {
+              <div class="endpoint-item">
+                <div class="endpoint-header">
+                  <code class="endpoint-path">{{ ep.endpoint }}</code>
+                  <span class="endpoint-hits">{{ ep.count }} hits</span>
+                </div>
+                <div class="progress-bar">
+                  <div
+                    class="progress-fill"
+                    [style.width.%]="(ep.count / (traffic()?.totalRequests || 1)) * 100"
+                  ></div>
+                </div>
+              </div>
+            } @empty {
+              <p class="empty-state">No traffic telemetry recorded yet.</p>
+            }
+          </div>
+        </div>
+
+        <!-- HTTP Status Distribution -->
+        <div class="traffic-card">
+          <h3 class="card-heading">HTTP Status Code Distribution</h3>
+          <div class="status-summary">
+            <div class="status-metric-box">
+              <span class="status-dot status-2xx"></span>
+              <div>
+                <strong>2xx Success</strong>
+                <div class="status-count">{{ traffic()?.statusDistribution?.['200'] ?? 0 }}</div>
+              </div>
+            </div>
+            <div class="status-metric-box">
+              <span class="status-dot status-4xx"></span>
+              <div>
+                <strong>4xx Client Errors</strong>
+                <div class="status-count">{{ traffic()?.statusDistribution?.['400'] ?? 0 }}</div>
+              </div>
+            </div>
+            <div class="status-metric-box">
+              <span class="status-dot status-5xx"></span>
+              <div>
+                <strong>5xx Server Errors</strong>
+                <div class="status-count">{{ traffic()?.statusDistribution?.['500'] ?? 0 }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  }
+
+  <!-- TAB 4: SERVICE MONITORING -->
+  @if (activeTab() === 'services') {
+    <section class="tab-content">
+      <div class="service-health-banner">
+        <div class="health-indicator-large">
+          <span class="pulse-indicator"></span>
+          <div>
+            <h3 class="health-status-text">Application Status: {{ serviceMetrics()?.status ?? 'UP' }}</h3>
+            <p class="health-sub">Database: {{ serviceMetrics()?.databaseStatus ?? 'CONNECTED' }} • Uptime: {{ formatUptime(serviceMetrics()?.uptimeSeconds) }}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="telemetry-grid">
+        <!-- Memory Diagnostics -->
+        <div class="telemetry-card">
+          <h3 class="card-heading">JVM Heap Memory Usage</h3>
+          <div class="memory-numbers">
+            <span class="mem-highlight">{{ serviceMetrics()?.heapUsedMb ?? 0 }} MB</span>
+            <span class="mem-total">/ {{ serviceMetrics()?.heapMaxMb ?? 0 }} MB Max</span>
+          </div>
+          <div class="progress-bar memory-bar">
+            <div
+              class="progress-fill fill-memory"
+              [style.width.%]="((serviceMetrics()?.heapUsedMb || 0) / (serviceMetrics()?.heapMaxMb || 1)) * 100"
+            ></div>
+          </div>
+          <div class="telemetry-details">
+            <div>Committed Heap: <strong>{{ serviceMetrics()?.heapCommittedMb ?? 0 }} MB</strong></div>
+            <div>Free Memory: <strong>{{ (serviceMetrics()?.heapMaxMb || 0) - (serviceMetrics()?.heapUsedMb || 0) }} MB</strong></div>
+          </div>
+        </div>
+
+        <!-- Concurrency & Threads -->
+        <div class="telemetry-card">
+          <h3 class="card-heading">Thread Concurrency & Compute</h3>
+          <div class="thread-stat-row">
+            <div class="thread-box">
+              <div class="thread-count">{{ serviceMetrics()?.threadCount ?? 0 }}</div>
+              <div class="thread-label">Live Active Threads</div>
+            </div>
+            <div class="thread-box">
+              <div class="thread-count">{{ serviceMetrics()?.peakThreadCount ?? 0 }}</div>
+              <div class="thread-label">Peak Threads</div>
+            </div>
+            <div class="thread-box">
+              <div class="thread-count">{{ serviceMetrics()?.availableProcessors ?? 0 }}</div>
+              <div class="thread-label">CPU Cores Available</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Database Connection Pool & Prometheus Telemetry -->
+        <div class="telemetry-card">
+          <h3 class="card-heading">Database Connection Pool (HikariCP)</h3>
+          <div class="telemetry-details">
+            <div>Active Connections: <strong>{{ serviceMetrics()?.connectionPool?.activeConnections ?? 0 }}</strong></div>
+            <div>Idle Connections: <strong>{{ serviceMetrics()?.connectionPool?.idleConnections ?? 0 }}</strong></div>
+            <div>Max Pool Size: <strong>{{ serviceMetrics()?.connectionPool?.maxPoolSize ?? 10 }}</strong></div>
+          </div>
+          <div class="telemetry-details" style="margin-top: 10px;">
+            <div>Disk Storage Free: <strong>{{ serviceMetrics()?.diskFreeGb ?? 0 }} GB</strong> / {{ serviceMetrics()?.diskTotalGb ?? 0 }} GB</div>
+            <div>Micrometer & Prometheus: <span class="role-chip" style="background: #ecfdf5; color: #059669;">Active (/actuator/prometheus)</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  }
+
+  <!-- TAB 5: SECURITY MONITORING -->
+  @if (activeTab() === 'security') {
+    <section class="tab-content">
+      @if (security()?.bruteForceAlert) {
+        <div class="security-banner-alert">
+          <span class="alert-symbol">⚠️</span>
+          <div>
+            <strong>Brute-Force Anomaly Alert</strong>
+            <p>Multiple failed authentication attempts detected within the past 15-minute window. Rate limiters are actively throttling offenders.</p>
+          </div>
+        </div>
+      }
+
+      <div class="security-stats-row">
+        <div class="sec-stat-card">
+          <div class="sec-label">Recent Failed Logins</div>
+          <div class="sec-value text-danger">{{ security()?.failedAttemptCount ?? 0 }}</div>
+        </div>
+        <div class="sec-stat-card">
+          <div class="sec-label">Currently Locked Accounts</div>
+          <div class="sec-value text-danger">{{ security()?.lockedAccountsCount ?? 0 }}</div>
+        </div>
+        <div class="sec-stat-card">
+          <div class="sec-label">Rate Limiter Threshold</div>
+          <div class="sec-value text-primary">5 Attempts / 15m</div>
+        </div>
+      </div>
+
+      <!-- Recent Login Attempts Table -->
+      <div class="table-card">
+        <h3 class="card-heading table-heading">Recent Login Attempts Log</h3>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Target Email</th>
+              <th>Client IP</th>
+              <th>Result</th>
+              <th>Failure Diagnostics</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (attempt of security()?.recentAttempts; track attempt.id) {
+              <tr>
+                <td class="cell-date">{{ attempt.attemptedAt | date:'medium' }}</td>
+                <td class="cell-strong">{{ attempt.email }}</td>
+                <td><code>{{ attempt.ipAddress }}</code></td>
+                <td>
+                  <span class="badge-outcome" [class.badge-success]="attempt.success" [class.badge-failure]="!attempt.success">
+                    {{ attempt.success ? '✓ SUCCESS' : '✕ FAILED' }}
+                  </span>
+                </td>
+                <td class="cell-reason">{{ attempt.failureReason || 'N/A (Authenticated)' }}</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="5" class="empty-row">No recent login attempts logged.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  }
+
+  <!-- TAB 6: AUDIT TRAIL -->
+  @if (activeTab() === 'audit') {
+    <section class="tab-content">
+      <div class="toolbar-row">
+        <div class="search-box">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input
+            type="text"
+            [ngModel]="auditFilter()"
+            (ngModelChange)="auditFilter.set($event)"
+            placeholder="Filter audit logs by action, actor, or details..."
+            class="search-input"
+          />
+        </div>
+
+        <button class="btn-export" (click)="exportAuditCsv()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span>Export CSV</span>
+        </button>
+      </div>
+
+      <!-- Audit Logs Table -->
+      <div class="table-card">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Action Type</th>
+              <th>Actor Email</th>
+              <th>Target Resource</th>
+              <th>Details</th>
+              <th>IP Address</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (log of filteredAuditLogs(); track log.id) {
+              <tr>
+                <td class="cell-date">{{ log.createdAt | date:'medium' }}</td>
+                <td>
+                  <span class="audit-action-chip" [attr.data-action]="log.action">
+                    {{ log.action }}
+                  </span>
+                </td>
+                <td class="cell-strong">{{ log.actorEmail || 'System / Anonymous' }}</td>
+                <td><code>{{ log.resourceType }}[{{ log.resourceId }}]</code></td>
+                <td class="cell-details">{{ log.details }}</td>
+                <td><code>{{ log.ipAddress }}</code></td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="6" class="empty-row">No audit logs matching query.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  }
+</div>
+
+<!-- TEMPORARY PASSWORD MODAL -->
+@if (tempPasswordModal()) {
+  <div class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Temporary Password Generated</h3>
+        <button class="modal-close" (click)="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-instruction">
+          A new temporary password has been generated for <strong>{{ tempPasswordModal()?.email }}</strong>. Provide this to the user securely:
+        </p>
+        <div class="temp-password-box">
+          <code>{{ tempPasswordModal()?.tempPass }}</code>
+        </div>
+        <p class="modal-warning">
+          ⚠️ For security reasons, the user should change this temporary password immediately after logging in.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-modal-close" (click)="closeModal()">Dismiss</button>
+      </div>
+    </div>
+  </div>
+}
+
