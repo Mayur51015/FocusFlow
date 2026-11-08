@@ -1,4 +1,6 @@
-<app-navbar></app-navbar>
-<main class="app-main">
+@if (!isPublicRoute()) {
+  <app-navbar></app-navbar>
+}
+<main [class.app-main]="!isPublicRoute()" [class.public-main]="isPublicRoute()">
   <router-outlet></router-outlet>
 </main>

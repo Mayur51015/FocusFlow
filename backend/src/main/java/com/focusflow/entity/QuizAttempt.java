@@ -1,6 +1,8 @@
 package com.focusflow.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
@@ -9,14 +11,23 @@ import java.util.List;
 
 /**
  * QuizAttempt entity tracks a completed student attempt for a Quiz.
+ * Scoped to individual users via user ownership.
  */
 @Entity
-@Table(name = "quiz_attempts")
+@Table(name = "quiz_attempts", indexes = {
+    @Index(name = "idx_quiz_attempts_user", columnList = "user_id"),
+    @Index(name = "idx_quiz_attempts_quiz", columnList = "quiz_id")
+})
 public class QuizAttempt {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    @JsonIgnore
+    private User user;
 
     @NotNull(message = "Quiz reference is required")
     @ManyToOne(fetch = FetchType.EAGER)
@@ -58,6 +69,17 @@ public class QuizAttempt {
         this.timeSpentSeconds = timeSpentSeconds;
     }
 
+    public QuizAttempt(Quiz quiz, int score, double percentage, boolean passed, LocalDateTime startedAt, LocalDateTime completedAt, int timeSpentSeconds, User user) {
+        this.quiz = quiz;
+        this.score = score;
+        this.percentage = percentage;
+        this.passed = passed;
+        this.startedAt = startedAt;
+        this.completedAt = completedAt;
+        this.timeSpentSeconds = timeSpentSeconds;
+        this.user = user;
+    }
+
     // Getters and Setters
     public Long getId() {
         return id;
@@ -65,6 +87,19 @@ public class QuizAttempt {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
+    }
+
+    @JsonProperty("userId")
+    public Long getUserId() {
+        return user != null ? user.getId() : null;
     }
 
     public Quiz getQuiz() {
@@ -131,4 +166,3 @@ public class QuizAttempt {
         this.answers = answers;
     }
 }
-

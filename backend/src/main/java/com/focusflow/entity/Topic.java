@@ -1,6 +1,8 @@
 package com.focusflow.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -9,9 +11,12 @@ import jakarta.validation.constraints.NotNull;
 /**
  * Topic Entity represents a unit of study belonging to a Subject.
  * Stores difficulty, estimated study duration, and completion status.
+ * Topic ownership is verified through its parent Subject and User.
  */
 @Entity
-@Table(name = "topics")
+@Table(name = "topics", indexes = {
+    @Index(name = "idx_topics_subject", columnList = "subject_id")
+})
 public class Topic {
 
     @Id
@@ -51,6 +56,16 @@ public class Topic {
         this.difficulty = difficulty;
         this.estimatedMinutes = estimatedMinutes;
         this.completed = completed;
+    }
+
+    @JsonIgnore
+    public User getUser() {
+        return subject != null ? subject.getUser() : null;
+    }
+
+    @JsonProperty("userId")
+    public Long getUserId() {
+        return getUser() != null ? getUser().getId() : null;
     }
 
     // Getters and Setters

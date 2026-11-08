@@ -3,8 +3,10 @@ package com.focusflow.controller;
 import com.focusflow.dto.LearningSummaryDto;
 import com.focusflow.dto.RetentionTrendsDto;
 import com.focusflow.dto.SubjectMasteryDto;
+import com.focusflow.security.UserPrincipal;
 import com.focusflow.service.AnalyticsService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -33,8 +35,11 @@ public class AnalyticsController {
     }
 
     @GetMapping("/subject-mastery")
-    public ResponseEntity<List<SubjectMasteryDto>> getSubjectMastery() {
-        return ResponseEntity.ok(analyticsService.getSubjectMastery());
+    public ResponseEntity<List<SubjectMasteryDto>> getSubjectMastery(@AuthenticationPrincipal UserPrincipal principal) {
+        Long userId = (principal != null && !principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN")))
+                ? principal.getId()
+                : null;
+        return ResponseEntity.ok(analyticsService.getSubjectMastery(userId));
     }
 
     @GetMapping("/retention-trends")
@@ -42,4 +47,3 @@ public class AnalyticsController {
         return ResponseEntity.ok(analyticsService.getRetentionTrends());
     }
 }
-

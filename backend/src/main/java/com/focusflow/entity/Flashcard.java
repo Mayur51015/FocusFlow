@@ -1,6 +1,8 @@
 package com.focusflow.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -10,14 +12,24 @@ import java.time.LocalDateTime;
 /**
  * Flashcard entity represents a concept flashcard with front prompt, back answer,
  * and per-card SM-2 spaced repetition state.
+ * Scoped to individual users via user ownership.
  */
 @Entity
-@Table(name = "flashcards")
+@Table(name = "flashcards", indexes = {
+    @Index(name = "idx_flashcards_user", columnList = "user_id"),
+    @Index(name = "idx_flashcards_topic", columnList = "topic_id"),
+    @Index(name = "idx_flashcards_review_date", columnList = "next_review_date")
+})
 public class Flashcard {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    @JsonIgnore
+    private User user;
 
     @NotNull(message = "Topic reference is required")
     @ManyToOne(fetch = FetchType.EAGER)
@@ -64,6 +76,22 @@ public class Flashcard {
         this.easinessFactor = 2.5;
         this.nextReviewDate = LocalDate.now();
         this.createdAt = LocalDateTime.now();
+        if (topic != null && topic.getUser() != null) {
+            this.user = topic.getUser();
+        }
+    }
+
+    public Flashcard(Topic topic, String frontPrompt, String backAnswer, String hint, User user) {
+        this.topic = topic;
+        this.frontPrompt = frontPrompt;
+        this.backAnswer = backAnswer;
+        this.hint = hint;
+        this.repetitionNumber = 0;
+        this.intervalDays = 1;
+        this.easinessFactor = 2.5;
+        this.nextReviewDate = LocalDate.now();
+        this.createdAt = LocalDateTime.now();
+        this.user = user != null ? user : (topic != null ? topic.getUser() : null);
     }
 
     // Getters and Setters
@@ -75,12 +103,29 @@ public class Flashcard {
         this.id = id;
     }
 
+    public User getUser() {
+        return user != null ? user : (topic != null ? topic.getUser() : null);
+    }
+
+    public void setUser(User user) {
+        this.user = user;
+    }
+
+    @JsonProperty("userId")
+    public Long getUserId() {
+        User u = getUser();
+        return u != null ? u.getId() : null;
+    }
+
     public Topic getTopic() {
         return topic;
     }
 
     public void setTopic(Topic topic) {
         this.topic = topic;
+        if (this.user == null && topic != null && topic.getUser() != null) {
+            this.user = topic.getUser();
+        }
     }
 
     public String getFrontPrompt() {
@@ -147,4 +192,3 @@ public class Flashcard {
         this.createdAt = createdAt;
     }
 }
-

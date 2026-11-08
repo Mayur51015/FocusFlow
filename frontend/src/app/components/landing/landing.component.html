@@ -1,0 +1,661 @@
+<div class="landing-container">
+  <!-- ========================================================================= -->
+  <!-- 1. PUBLIC NAVIGATION BAR                                                  -->
+  <!-- ========================================================================= -->
+  <header class="landing-navbar">
+    <div class="nav-wrapper">
+      <div class="nav-brand" (click)="scrollToSection('hero')">
+        <div class="brand-badge">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+            <polyline points="2 17 12 22 22 17"></polyline>
+            <polyline points="2 12 12 17 22 12"></polyline>
+          </svg>
+        </div>
+        <div class="brand-info">
+          <span class="brand-name">FocusFlow</span>
+          <span class="brand-tagline">Academic Engine</span>
+        </div>
+      </div>
+
+      <!-- Desktop Nav Links -->
+      <nav class="desktop-links">
+        <a (click)="scrollToSection('features')" class="nav-link">Features</a>
+        <a (click)="scrollToSection('problem-solution')" class="nav-link">Why FocusFlow</a>
+        <a (click)="scrollToSection('how-it-works')" class="nav-link">How It Works</a>
+        <a (click)="scrollToSection('preview')" class="nav-link">Platform Preview</a>
+      </nav>
+
+      <!-- Desktop Actions -->
+      <div class="nav-actions">
+        <a routerLink="/login" class="btn-login">Login</a>
+        <a routerLink="/register" class="btn-primary">Get Started</a>
+        <a routerLink="/dashboard" class="btn-demo" title="Direct Preview">Live App ➔</a>
+      </div>
+
+      <!-- Mobile Hamburger Button -->
+      <button class="mobile-toggle" (click)="toggleMobileMenu()" aria-label="Toggle navigation menu">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          @if (!mobileMenuOpen()) {
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          } @else {
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          }
+        </svg>
+      </button>
+    </div>
+
+    <!-- Mobile Menu Dropdown -->
+    @if (mobileMenuOpen()) {
+      <div class="mobile-menu">
+        <a (click)="scrollToSection('features')" class="mobile-link">Features</a>
+        <a (click)="scrollToSection('problem-solution')" class="mobile-link">Why FocusFlow</a>
+        <a (click)="scrollToSection('how-it-works')" class="mobile-link">How It Works</a>
+        <a (click)="scrollToSection('preview')" class="mobile-link">Platform Preview</a>
+        <div class="mobile-actions">
+          <a routerLink="/login" (click)="closeMobileMenu()" class="btn-login-mobile">Login</a>
+          <a routerLink="/register" (click)="closeMobileMenu()" class="btn-primary-mobile">Get Started</a>
+          <a routerLink="/dashboard" (click)="closeMobileMenu()" class="btn-demo-mobile">Explore Live Workspace</a>
+        </div>
+      </div>
+    }
+  </header>
+
+  <!-- ========================================================================= -->
+  <!-- 2. HERO SECTION                                                           -->
+  <!-- ========================================================================= -->
+  <section id="hero" class="hero-section">
+    <div class="hero-content">
+      <div class="hero-badge">
+        <span class="badge-dot"></span>
+        <span class="badge-text">FocusFlow 2.0 • Smart Learning & ML Academic Engine</span>
+      </div>
+
+      <h1 class="hero-title">
+        Plan Smarter. Study Better. Achieve More.
+      </h1>
+
+      <p class="hero-description">
+        Transform your study habits with an algorithmic daily scheduler powered by machine learning duration forecasting, SuperMemo SM-2 spaced repetition, objective quiz assessments, and multi-factor exam readiness analytics.
+      </p>
+
+      <div class="hero-ctas">
+        <a routerLink="/register" class="btn-hero-primary">
+          Get Started
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        </a>
+        <a routerLink="/login" class="btn-hero-secondary">
+          Login
+        </a>
+        <a routerLink="/dashboard" class="btn-hero-outline">
+          Explore Live Demo
+        </a>
+      </div>
+
+      <!-- Quick Proof Highlights -->
+      <div class="hero-highlights">
+        <div class="highlight-item">
+          <span class="highlight-icon">⚡</span>
+          <span class="highlight-label">Adaptive Scheduling</span>
+          <span class="highlight-sub">Capacity invariant recovery</span>
+        </div>
+        <div class="highlight-item">
+          <span class="highlight-icon">🤖</span>
+          <span class="highlight-label">ML Duration Forecast</span>
+          <span class="highlight-sub">Random Forest (R² = 0.954)</span>
+        </div>
+        <div class="highlight-item">
+          <span class="highlight-icon">🧠</span>
+          <span class="highlight-label">SM-2 Spaced Revisions</span>
+          <span class="highlight-sub">Adaptive retention intervals</span>
+        </div>
+        <div class="highlight-item">
+          <span class="highlight-icon">🎯</span>
+          <span class="highlight-label">Exam Readiness Index</span>
+          <span class="highlight-sub">Multi-factor 0–100% score</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================================= -->
+  <!-- 3. PROBLEM & SOLUTION SECTION                                             -->
+  <!-- ========================================================================= -->
+  <section id="problem-solution" class="problem-solution-section">
+    <div class="section-header">
+      <span class="section-tag">The Academic Challenge</span>
+      <h2 class="section-title">Why Traditional Studying Fails University Students</h2>
+      <p class="section-subtitle">
+        Students spend hundreds of hours studying, yet fall victim to poor time estimation, irregular revisions, and unexpected exam surprises. FocusFlow solves this with data-driven structure.
+      </p>
+    </div>
+
+    <div class="comparison-grid">
+      <!-- Traditional Card -->
+      <div class="comparison-card traditional-card">
+        <div class="card-status-pill traditional-pill">The Traditional Struggle</div>
+        <h3 class="card-heading">Chaotic, Stressful Cramming</h3>
+        <ul class="comparison-list">
+          <li>
+            <span class="cross-icon">✕</span>
+            <div>
+              <strong>Erratic Study Schedules:</strong> Guessing which subject to study each night without structured capacity planning.
+            </div>
+          </li>
+          <li>
+            <span class="cross-icon">✕</span>
+            <div>
+              <strong>Underestimating Duration:</strong> Planning 30 minutes for a hard topic only to spend 2 hours exhausted and frustrated.
+            </div>
+          </li>
+          <li>
+            <span class="cross-icon">✕</span>
+            <div>
+              <strong>The Forgetting Curve:</strong> Reviewing material only days before exams, forgetting up to 75% of previously learned concepts.
+            </div>
+          </li>
+          <li>
+            <span class="cross-icon">✕</span>
+            <div>
+              <strong>False Confidence:</strong> Entering exams blind with zero objective measurement of topic mastery or actual readiness.
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      <!-- FocusFlow Card -->
+      <div class="comparison-card solution-card">
+        <div class="card-status-pill solution-pill">The FocusFlow Way</div>
+        <h3 class="card-heading">Intelligent, Systematic Mastery</h3>
+        <ul class="comparison-list">
+          <li>
+            <span class="check-icon">✓</span>
+            <div>
+              <strong>Greedy Priority Allocator:</strong> Balances exam urgency, subject importance, and topic difficulty within strict daily hours.
+            </div>
+          </li>
+          <li>
+            <span class="check-icon">✓</span>
+            <div>
+              <strong>Calibrated ML Predictions:</strong> Forecasts realistic study durations based on your historical pace and topic difficulty.
+            </div>
+          </li>
+          <li>
+            <span class="check-icon">✓</span>
+            <div>
+              <strong>SuperMemo SM-2 Revisions:</strong> Automatically schedules periodic flashcard reviews right when memory begins to fade.
+            </div>
+          </li>
+          <li>
+            <span class="check-icon">✓</span>
+            <div>
+              <strong>Real-Time Exam Readiness:</strong> Synthesizes syllabus completion, quiz scores, and weak topics into actionable advice.
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================================= -->
+  <!-- 4. CORE FEATURES SECTION                                                  -->
+  <!-- ========================================================================= -->
+  <section id="features" class="features-section">
+    <div class="section-header">
+      <span class="section-tag">Core Features</span>
+      <h2 class="section-title">Engineered for Academic Excellence</h2>
+      <p class="section-subtitle">
+        Everything university students need to stay organized, retain knowledge, and systematically improve examination scores.
+      </p>
+    </div>
+
+    <div class="features-grid">
+      <!-- Feature 1 -->
+      <div class="feature-card">
+        <div class="feature-icon-wrapper blue">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
+        </div>
+        <h3 class="feature-title">Greedy Priority Scheduler</h3>
+        <p class="feature-desc">
+          Dynamically plans study sessions using an established academic formula: <code>(Urgency × 3.0) + (Importance × 2.0) + Difficulty</code>. Never miss high-yield topics before exam day.
+        </p>
+        <span class="feature-meta">⚡ Dynamic Invariant Recovery</span>
+      </div>
+
+      <!-- Feature 2 -->
+      <div class="feature-card">
+        <div class="feature-icon-wrapper purple">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+        </div>
+        <h3 class="feature-title">ML Duration Prediction</h3>
+        <p class="feature-desc">
+          Powered by a calibrated Scikit-Learn Random Forest Regressor running in an independent microservice. Automatically predicts realistic study durations with seamless heuristic fallback.
+        </p>
+        <span class="feature-meta">🤖 RandomForest (MAE: 5.99m)</span>
+      </div>
+
+      <!-- Feature 3 -->
+      <div class="feature-card">
+        <div class="feature-icon-wrapper green">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+        </div>
+        <h3 class="feature-title">Quiz & Assessment System</h3>
+        <p class="feature-desc">
+          Test your comprehension with topic-wise and subject-wise MCQ quizzes. Features anti-cheating response sanitization, timed countdowns, and instant objective score audits.
+        </p>
+        <span class="feature-meta">📝 Objective Score Breakdown</span>
+      </div>
+
+      <!-- Feature 4 -->
+      <div class="feature-card">
+        <div class="feature-icon-wrapper amber">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+        </div>
+        <h3 class="feature-title">Weak Topic Diagnosis</h3>
+        <p class="feature-desc">
+          Classifies every syllabus topic into <code>STRONG</code>, <code>MODERATE</code>, or <code>WEAK</code>. Visual radar badges pinpoint exact conceptual blind spots before they impact test grades.
+        </p>
+        <span class="feature-meta">🔍 Random Forest Classifier</span>
+      </div>
+
+      <!-- Feature 5 -->
+      <div class="feature-card">
+        <div class="feature-icon-wrapper indigo">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+          </svg>
+        </div>
+        <h3 class="feature-title">SM-2 Spaced Repetition</h3>
+        <p class="feature-desc">
+          Completing a topic schedules automatic revision reviews using the SuperMemo SM-2 algorithm. Includes interactive 3D concept flashcards with recall rating (AGAIN, HARD, GOOD, EASY).
+        </p>
+        <span class="feature-meta">🧠 1d → 3d → 7d → 14d Adaptive</span>
+      </div>
+
+      <!-- Feature 6 -->
+      <div class="feature-card">
+        <div class="feature-icon-wrapper teal">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10"></line>
+            <line x1="12" y1="20" x2="12" y2="4"></line>
+            <line x1="6" y1="20" x2="6" y2="14"></line>
+          </svg>
+        </div>
+        <h3 class="feature-title">Exam Readiness Estimation</h3>
+        <p class="feature-desc">
+          Synthesizes syllabus completion (35%), quiz performance (35%), and revision consistency (20%) into a 0–100% readiness score with prioritized study recommendations.
+        </p>
+        <span class="feature-meta">📊 Regressor (R² = 0.976)</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================================= -->
+  <!-- 5. HOW IT WORKS SECTION                                                   -->
+  <!-- ========================================================================= -->
+  <section id="how-it-works" class="how-it-works-section">
+    <div class="section-header">
+      <span class="section-tag">Student Workflow</span>
+      <h2 class="section-title">How FocusFlow Elevates Your Academic Journey</h2>
+      <p class="section-subtitle">
+        A seamless 4-step workflow connecting syllabus tracking to verified retention.
+      </p>
+    </div>
+
+    <div class="steps-grid">
+      <!-- Step 1 -->
+      <div class="step-card">
+        <div class="step-number">01</div>
+        <h3 class="step-title">Configure Your Courses</h3>
+        <p class="step-desc">
+          Add your subjects, set exam deadlines, and define syllabus topics with estimated duration and difficulty levels (Easy, Medium, Hard).
+        </p>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="step-card">
+        <div class="step-number">02</div>
+        <h3 class="step-title">Generate Daily Plan</h3>
+        <p class="step-desc">
+          Specify your available study hours for the day. FocusFlow calculates priorities and allocates a realistic schedule with ML duration forecasts.
+        </p>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="step-card">
+        <div class="step-number">03</div>
+        <h3 class="step-title">Evaluate Understanding</h3>
+        <p class="step-desc">
+          Take subject or topic quizzes. The evaluation engine automatically categorizes your topic mastery and flags weak concepts on your dashboard.
+        </p>
+      </div>
+
+      <!-- Step 4 -->
+      <div class="step-card">
+        <div class="step-number">04</div>
+        <h3 class="step-title">Retain & Review with SM-2</h3>
+        <p class="step-desc">
+          Review daily due flashcards with SuperMemo SM-2 spaced repetition. As you rate recall, the system calculates optimal review intervals for maximum retention.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================================= -->
+  <!-- 6. REAL APPLICATION DASHBOARD PREVIEW                                      -->
+  <!-- ========================================================================= -->
+  <section id="preview" class="preview-section">
+    <div class="section-header">
+      <span class="section-tag">Interactive Preview</span>
+      <h2 class="section-title">Experience the Real FocusFlow Workspace</h2>
+      <p class="section-subtitle">
+        Explore interactive mockups of the actual FocusFlow platform running live on Angular 19 and Spring Boot 3.
+      </p>
+    </div>
+
+    <!-- Preview Chrome Window -->
+    <div class="preview-window">
+      <!-- Window Titlebar -->
+      <div class="window-titlebar">
+        <div class="window-dots">
+          <span class="dot red"></span>
+          <span class="dot yellow"></span>
+          <span class="dot green"></span>
+        </div>
+        <div class="window-address">
+          https://focusflow.app/workspace/dashboard
+        </div>
+        <div class="window-meta">
+          <span class="live-pill">● System Active</span>
+        </div>
+      </div>
+
+      <!-- Window Subheader / View Tabs -->
+      <div class="window-tabs">
+        <button class="tab-btn" [class.active]="activePreviewTab() === 'dashboard'" (click)="setPreviewTab('dashboard')">
+          📊 Dashboard & Schedule
+        </button>
+        <button class="tab-btn" [class.active]="activePreviewTab() === 'flashcards'" (click)="setPreviewTab('flashcards')">
+          🧠 Spaced Revisions & Flashcards
+        </button>
+        <button class="tab-btn" [class.active]="activePreviewTab() === 'readiness'" (click)="setPreviewTab('readiness')">
+          🎯 Exam Readiness Engine
+        </button>
+        <button class="tab-btn" [class.active]="activePreviewTab() === 'analytics'" (click)="setPreviewTab('analytics')">
+          📈 Academic Analytics
+        </button>
+      </div>
+
+      <!-- Window Body Content -->
+      <div class="window-body">
+        <!-- Tab 1: Dashboard -->
+        @if (activePreviewTab() === 'dashboard') {
+          <div class="preview-tab-content">
+            <div class="preview-kpi-row">
+              <div class="mock-kpi">
+                <span class="kpi-label">Active Subjects</span>
+                <span class="kpi-value">4 Courses</span>
+                <span class="kpi-hint">Next exam in 2 days</span>
+              </div>
+              <div class="mock-kpi">
+                <span class="kpi-label">Today's Study Capacity</span>
+                <span class="kpi-value">210 mins</span>
+                <span class="kpi-hint text-success">3.5 hrs committed</span>
+              </div>
+              <div class="mock-kpi">
+                <span class="kpi-label">Due Revisions</span>
+                <span class="kpi-value text-purple">1 Session Due</span>
+                <span class="kpi-hint">SM-2 SuperMemo Interval</span>
+              </div>
+              <div class="mock-kpi">
+                <span class="kpi-label">Overall Academic Mastery</span>
+                <span class="kpi-value text-primary">61.0%</span>
+                <span class="kpi-hint">3 Strong, 2 Moderate</span>
+              </div>
+            </div>
+
+            <!-- Mock Schedule Table -->
+            <div class="mock-card">
+              <div class="mock-card-header">
+                <span class="mock-card-title">📅 Today's Planned Sessions</span>
+                <span class="mock-badge">Adaptive Allocation</span>
+              </div>
+              <div class="mock-table">
+                <div class="mock-table-row header">
+                  <span>Topic & Course</span>
+                  <span>Difficulty</span>
+                  <span>Duration</span>
+                  <span>Prediction Engine</span>
+                  <span>Action</span>
+                </div>
+                <div class="mock-table-row">
+                  <div>
+                    <strong>Binary Search Trees</strong>
+                    <div class="row-sub">Data Structures & Algorithms</div>
+                  </div>
+                  <span><span class="badge-medium">MEDIUM</span></span>
+                  <span><strong>93 mins</strong></span>
+                  <span><span class="badge-ml">🤖 ML Model (v1.0)</span></span>
+                  <span><button class="mock-action-btn done">✓ Completed</button></span>
+                </div>
+                <div class="mock-table-row">
+                  <div>
+                    <strong>CPU Scheduling Algorithms</strong>
+                    <div class="row-sub">Operating Systems</div>
+                  </div>
+                  <span><span class="badge-hard">HARD</span></span>
+                  <span><strong>75 mins</strong></span>
+                  <span><span class="badge-ml">🤖 ML Model (v1.0)</span></span>
+                  <span><button class="mock-action-btn active">▶ Start Timer</button></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        }
+
+        <!-- Tab 2: Flashcards -->
+        @if (activePreviewTab() === 'flashcards') {
+          <div class="preview-tab-content">
+            <div class="flashcard-preview-container">
+              <div class="mock-flashcard">
+                <div class="fc-badge">Concept Flashcard #101 • Binary Search Trees</div>
+                <div class="fc-question">
+                  "What is the average and worst-case time complexity of searching a key in a balanced BST vs an unbalanced BST?"
+                </div>
+                <div class="fc-answer">
+                  <strong>Answer:</strong> Balanced BST: <code>O(log n)</code> for both average and worst case. Unbalanced (skewed) BST degrades to <code>O(n)</code> linear search.
+                </div>
+              </div>
+
+              <!-- Recall Buttons -->
+              <div class="fc-recall-row">
+                <span class="recall-prompt">Rate your recall (SuperMemo SM-2 Algorithm):</span>
+                <div class="recall-btn-group">
+                  <button class="btn-recall again">AGAIN (1d)</button>
+                  <button class="btn-recall hard">HARD (2d)</button>
+                  <button class="btn-recall good active">GOOD (3d)</button>
+                  <button class="btn-recall easy">EASY (6d)</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        }
+
+        <!-- Tab 3: Exam Readiness -->
+        @if (activePreviewTab() === 'readiness') {
+          <div class="preview-tab-content">
+            <div class="readiness-preview-card">
+              <div class="readiness-header">
+                <div>
+                  <h3>Data Structures & Algorithms — Exam Readiness</h3>
+                  <p class="readiness-sub">Exam Date: November 04, 2026 (2 days remaining)</p>
+                </div>
+                <div class="readiness-score-box">
+                  <span class="score-num">45.8%</span>
+                  <span class="score-level-badge low">LOW PREPARATION</span>
+                </div>
+              </div>
+
+              <div class="readiness-progress-bars">
+                <div class="rp-item">
+                  <div class="rp-label"><span>Syllabus Completion (35% weight)</span><span>50%</span></div>
+                  <div class="rp-bar"><div class="rp-fill" style="width: 50%;"></div></div>
+                </div>
+                <div class="rp-item">
+                  <div class="rp-label"><span>Quiz Performance (35% weight)</span><span>60.6%</span></div>
+                  <div class="rp-bar"><div class="rp-fill" style="width: 60.6%;"></div></div>
+                </div>
+                <div class="rp-item">
+                  <div class="rp-label"><span>Revision Completion (20% weight)</span><span>100%</span></div>
+                  <div class="rp-bar"><div class="rp-fill success" style="width: 100%;"></div></div>
+                </div>
+              </div>
+
+              <div class="readiness-advice">
+                <strong>Pedagogical Advice:</strong>
+                <p>⚠️ Critical: Exam is in 2 day(s) with only 50% syllabus completed. Focus exclusively on core high-yield topics and summary flashcards.</p>
+              </div>
+            </div>
+          </div>
+        }
+
+        <!-- Tab 4: Analytics -->
+        @if (activePreviewTab() === 'analytics') {
+          <div class="preview-tab-content">
+            <div class="analytics-preview-grid">
+              <div class="mock-card">
+                <div class="mock-card-header">
+                  <span class="mock-card-title">Topic Mastery Balance</span>
+                </div>
+                <div class="balance-bar">
+                  <div class="bb-segment strong" style="width: 60%;" title="Strong: 3 topics">3 Strong (60%)</div>
+                  <div class="bb-segment moderate" style="width: 40%;" title="Moderate: 2 topics">2 Moderate (40%)</div>
+                </div>
+                <p class="bb-legend">0 Weak topics diagnosed. Continuous quiz evaluations keep this profile updated.</p>
+              </div>
+
+              <div class="mock-card">
+                <div class="mock-card-header">
+                  <span class="mock-card-title">ML Prediction vs Actual Study Time</span>
+                </div>
+                <div class="mae-box">
+                  <div class="mae-metric">
+                    <span class="mae-val">5.99m</span>
+                    <span class="mae-lbl">Mean Absolute Error</span>
+                  </div>
+                  <div class="mae-metric">
+                    <span class="mae-val">91.4%</span>
+                    <span class="mae-lbl">Within ±15 Minutes</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================================= -->
+  <!-- 7. CALL-TO-ACTION (CTA) SECTION                                           -->
+  <!-- ========================================================================= -->
+  <section class="cta-section">
+    <div class="cta-card">
+      <h2 class="cta-title">Ready to Take Control of Your Academic Success?</h2>
+      <p class="cta-subtitle">
+        Join students who use FocusFlow to eliminate study anxiety, pace their syllabus realistically, and excel on examination day.
+      </p>
+      <div class="cta-buttons">
+        <a routerLink="/register" class="btn-cta-primary">
+          Get Started Now
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        </a>
+        <a routerLink="/login" class="btn-cta-secondary">
+          Sign In to Account
+        </a>
+        <a routerLink="/dashboard" class="btn-cta-outline">
+          Launch Live Workspace ➔
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================================= -->
+  <!-- 8. FOOTER                                                                 -->
+  <!-- ========================================================================= -->
+  <footer class="landing-footer">
+    <div class="footer-wrapper">
+      <div class="footer-brand-col">
+        <div class="footer-brand">
+          <div class="brand-badge small">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+              <polyline points="2 17 12 22 22 17"></polyline>
+              <polyline points="2 12 12 17 22 12"></polyline>
+            </svg>
+          </div>
+          <span class="footer-brand-name">FocusFlow</span>
+        </div>
+        <p class="footer-desc">
+          Smart Learning & ML-Based Academic Performance Platform. Engineered with Angular 19, Spring Boot 3, and Python FastAPI.
+        </p>
+      </div>
+
+      <div class="footer-nav-col">
+        <h4>Navigation</h4>
+        <a (click)="scrollToSection('features')">Core Features</a>
+        <a (click)="scrollToSection('problem-solution')">Why FocusFlow</a>
+        <a (click)="scrollToSection('how-it-works')">How It Works</a>
+        <a (click)="scrollToSection('preview')">Platform Preview</a>
+      </div>
+
+      <div class="footer-planned-col">
+        <h4>Roadmap (Planned Features)</h4>
+        <span class="roadmap-item">• Mobile Companion App</span>
+        <span class="roadmap-item">• Cloud Multi-Device Sync</span>
+        <span class="roadmap-item">• Collaborative Study Groups</span>
+        <span class="roadmap-item">• AI Flashcard Generator</span>
+      </div>
+
+      <div class="footer-links-col">
+        <h4>Platform Access</h4>
+        <a routerLink="/login">Student Login</a>
+        <a routerLink="/register">Register Account</a>
+        <a routerLink="/dashboard">Live Workspace Demo</a>
+        <a href="https://github.com/shweta-ithape/FocusFlow" target="_blank" rel="noopener">GitHub Repository ↗</a>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <p>© 2026 FocusFlow. Built with clean, production-grade architecture. All rights reserved.</p>
+    </div>
+  </footer>
+</div>
+
